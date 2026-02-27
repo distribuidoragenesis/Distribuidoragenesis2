@@ -45,7 +45,6 @@ try {
 
 window._fb = {
   ready: () => fbReady,
-
   watchProducts: (cb) => {
     if (!fbReady) return;
     onValue(ref(db, "products"), snap => {
@@ -53,7 +52,6 @@ window._fb = {
       cb(data ? Object.entries(data).map(([k, v]) => ({ _key: k, ...v })) : []);
     });
   },
-
   watchOrders: (cb) => {
     if (!fbReady) return;
     onValue(ref(db, "orders"), snap => {
@@ -61,7 +59,6 @@ window._fb = {
       cb(data ? Object.entries(data).map(([k, v]) => ({ _key: k, ...v })) : []);
     });
   },
-
   watchSettings: (cb) => {
     if (!fbReady) return;
     onValue(ref(db, "settings"), snap => {
@@ -69,7 +66,6 @@ window._fb = {
       if (data) cb(data);
     });
   },
-
   saveProducts: async (productsArr) => {
     if (!fbReady) return;
     const obj = {};
@@ -80,7 +76,6 @@ window._fb = {
     });
     await set(ref(db, "products"), obj);
   },
-
   saveProduct: async (p) => {
     if (!fbReady) return;
     if (p._key) {
@@ -94,12 +89,10 @@ window._fb = {
       return newRef.key;
     }
   },
-
   deleteProduct: async (key) => {
     if (!fbReady || !key) return;
     await remove(ref(db, "products/" + key));
   },
-
   saveOrder: async (order) => {
     if (!fbReady) return null;
     const { _key, ...data } = order;
@@ -107,12 +100,10 @@ window._fb = {
     await set(newRef, data);
     return newRef.key;
   },
-
   updateOrderStatus: async (key, status) => {
     if (!fbReady || !key) return;
     await update(ref(db, "orders/" + key), { status });
   },
-
   saveSettings: async (settings) => {
     if (!fbReady) return;
     await set(ref(db, "settings"), settings);
