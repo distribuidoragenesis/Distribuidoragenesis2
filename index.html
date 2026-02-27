@@ -3,12 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Distribuidora Genesis 2 2</title>
+<title>Distribuidora Genesis 2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <script type="module">
-const firebaseConfig = {
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, push, update, remove, get }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBFXv9NEu0ffBhxIB1TlR8sZyxiFTVMVcs",
   authDomain: "distribuidoragenesis2-98291.firebaseapp.com",
   databaseURL: "https://distribuidoragenesis2-98291-default-rtdb.firebaseio.com",
@@ -17,6 +21,10 @@ const firebaseConfig = {
   messagingSenderId: "572631598494",
   appId: "1:572631598494:web:c007fc3a3b56988b6a428f"
 };
+
+let db = null;
+let fbReady = false;
+
 function syncStatus(ok, label) {
   const dot = document.getElementById("syncDot");
   const lbl = document.getElementById("syncLabel");
@@ -25,25 +33,112 @@ function syncStatus(ok, label) {
   if (lbl) lbl.textContent = label;
 }
 
-// Modo local - sin Firebase
-syncStatus(false, "local");
+try {
+  const app = initializeApp(FIREBASE_CONFIG);
+  db = getDatabase(app);
+  fbReady = true;
+  syncStatus(true, "online");
+} catch(e) {
+  console.warn("Error conectando Firebase:", e);
+  syncStatus(false, "local");
+}
 
 window._fb = {
-  ready: () => false,
-  watchProducts: (cb) => {},
-  watchOrders: (cb) => {},
-  watchSettings: (cb) => {},
-  saveProducts: async () => {},
-  saveProduct: async () => {},
-  deleteProduct: async () => {},
-  saveOrder: async () => null,
-  updateOrderStatus: async () => {},
-  saveSettings: async () => {},
+  ready: () => fbReady,
+
+  watchProducts: (cb) => {
+    if (!fbReady) return;
+    onValue(ref(db, "products"), snap => {
+      const data = snap.val();
+      cb(data ? Object.entries(data).map(([k, v]) => ({ _key: k, ...v })) : []);
+    });
+  },
+
+  watchOrders: (cb) => {
+    if (!fbReady) return;
+    onValue(ref(db, "orders"), snap => {
+      const data = snap.val();
+      cb(data ? Object.entries(data).map(([k, v]) => ({ _key: k, ...v })) : []);
+    });
+  },
+
+  watchSettings: (cb) => {
+    if (!fbReady) return;
+    onValue(ref(db, "settings"), snap => {
+      const data = snap.val();
+      if (data) cb(data);
+    });
+  },
+
+  saveProducts: async (productsArr) => {
+    if (!fbReady) return;
+    const obj = {};
+    productsArr.forEach(p => {
+      const key = p._key || push(ref(db, "products")).key;
+      const { _key, ...data } = p;
+      obj[key] = data;
+    });
+    await set(ref(db, "products"), obj);
+  },
+
+  saveProduct: async (p) => {
+    if (!fbReady) return;
+    if (p._key) {
+      const { _key, ...data } = p;
+      await set(ref(db, "products/" + _key), data);
+      return _key;
+    } else {
+      const newRef = push(ref(db, "products"));
+      const { _key, ...data } = p;
+      await set(newRef, data);
+      return newRef.key;
+    }
+  },
+
+  deleteProduct: async (key) => {
+    if (!fbReady || !key) return;
+    await remove(ref(db, "products/" + key));
+  },
+
+  saveOrder: async (order) => {
+    if (!fbReady) return null;
+    const { _key, ...data } = order;
+    const newRef = push(ref(db, "orders"));
+    await set(newRef, data);
+    return newRef.key;
+  },
+
+  updateOrderStatus: async (key, status) => {
+    if (!fbReady || !key) return;
+    await update(ref(db, "orders/" + key), { status });
+  },
+
+  saveSettings: async (settings) => {
+    if (!fbReady) return;
+    await set(ref(db, "settings"), settings);
+  },
 };
 
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("loadingOverlay").classList.add("show");
-  setTimeout(() => window._appInit && window._appInit(), 300);
+  if (fbReady) {
+    Promise.all([
+      get(ref(db, "products")),
+      get(ref(db, "orders")),
+      get(ref(db, "settings"))
+    ]).then(([pSnap, oSnap, sSnap]) => {
+      if (pSnap.val()) window._fbInitProducts = Object.entries(pSnap.val()).map(([k,v])=>({_key:k,...v}));
+      if (oSnap.val()) window._fbInitOrders = Object.entries(oSnap.val()).map(([k,v])=>({_key:k,...v}));
+      if (sSnap.val()) window._fbInitSettings = sSnap.val();
+      setTimeout(() => window._appInit && window._appInit(), 100);
+    }).catch(err => {
+      console.warn("Error cargando Firebase, modo local:", err);
+      syncStatus(false, "local");
+      setTimeout(() => window._appInit && window._appInit(), 100);
+    });
+  } else {
+    setTimeout(() => window._appInit && window._appInit(), 300);
+  }
 });
 </script>
 
