@@ -12,8 +12,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, onValue, set, push, update, remove, get }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-const _savedFbCfg = JSON.parse(localStorage.getItem("lx_fb_config_genesis") || "null");
-   const firebaseConfig = {
+const _savedFbCfg = JSON.parse(localStorage.getItem("lx_fb_config_genesis2") || "null");
+const FIREBASE_CONFIG = _savedFbCfg || {
   apiKey: "AIzaSyBFXv9NEu0ffBhxIB1TlR8sZyxiFTVMVcs",
   authDomain: "distribuidoragenesis2-98291.firebaseapp.com",
   databaseURL: "https://distribuidoragenesis2-98291-default-rtdb.firebaseio.com",
@@ -796,7 +796,7 @@ const GT_DATA = {"Guatemala": ["Guatemala", "Santa Catarina Pinula", "San José 
 let products=[], orders=[], cart=[];
 let editingId=null, loggedIn=false, currentPage=1;
 const PAGE_SIZE=24;
-let storeSettings={name:"DISTRIBUIDORA GENESIS 2",desc:"Los mejores productos al mejor precio",logo:"",waNumber:"",credentials:"distribuidora:genesis2024",mayoreoConfig:null,shippingZones:{},defaultShipping:25,freeShippingAt:300};
+let storeSettings={name:"DISTRIBUIDORA GENESIS 2",desc:"Los mejores productos al mejor precio",logo:"",waNumber:"",credentials:"distribuidora:genesis2024_2",mayoreoConfig:null,shippingZones:{},defaultShipping:25,freeShippingAt:300};
 let mayoreoMode=false, mayoreoTipo="";
 // Tipos de precio: publico y mayoristas (con sub-tipos)
 const PRECIO_TIPOS={
@@ -1229,7 +1229,7 @@ function doTrack(){
 function doLogin(){
   const user=document.getElementById("loginUser").value.trim();
   const pass=document.getElementById("loginPass").value.trim();
-  const[cu,cp]=(storeSettings.credentials||"distribuidora:genesis2024").split(":");
+  const[cu,cp]=(storeSettings.credentials||"distribuidora:genesis2024_2").split(":");
   if(user===cu&&pass===cp){loggedIn=true;document.getElementById("adminNavBtn").style.display="";document.getElementById("adminLoginBtn").style.display="none";showPage("admin");}
   else toast("Credenciales incorrectas","error");
 }
@@ -1474,7 +1474,7 @@ function saveFbConfig(){
   var projectId=document.getElementById("fbProjectId").value.trim();
   if(!apiKey||!dbUrl||!projectId){toast("Completa los tres campos de Firebase","error");return;}
   var cfg={apiKey:apiKey,databaseURL:dbUrl,projectId:projectId,authDomain:projectId+".firebaseapp.com",storageBucket:projectId+".appspot.com"};
-  localStorage.setItem("lx_fb_config_genesis",JSON.stringify(cfg));
+  localStorage.setItem("lx_fb_config_genesis2",JSON.stringify(cfg));
   toast("Configuracion guardada. Recarga la pagina para conectar.","success");
   setTimeout(()=>location.reload(),2000);
 }
@@ -1482,7 +1482,7 @@ function saveFbConfig(){
 function updateFbStatusBadge(){
   var badge=document.getElementById("fbStatusBadge");
   if(!badge)return;
-  var cfg=localStorage.getItem("lx_fb_config_genesis");
+  var cfg=localStorage.getItem("lx_fb_config_genesis2");
   if(window._fb&&window._fb.ready()){
     badge.textContent="Conectado";
     badge.style.background="var(--green-soft)";
@@ -1506,7 +1506,7 @@ function saveStoreSettings(){
   storeSettings.name=document.getElementById("settingName").value.trim()||"DISTRIBUIDORA GENESIS 2";
   storeSettings.desc=document.getElementById("settingDesc").value.trim();
   storeSettings.waNumber=document.getElementById("settingWA").value.trim();
-  storeSettings.credentials=document.getElementById("settingCreds").value.trim()||"distribuidora:genesis2024";
+  storeSettings.credentials=document.getElementById("settingCreds").value.trim()||"distribuidora:genesis2024_2";
   const url=document.getElementById("settingLogoUrl").value.trim();
   const file=document.getElementById("settingLogoFile").files[0];
   if(file){const r=new FileReader();r.onload=e=>{storeSettings.logo=e.target.result;saveSettings();applyStoreSettings();toast("Tienda guardada","success");};r.readAsDataURL(file);}
@@ -1593,7 +1593,7 @@ function exportInventoryCSV(){
   var blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
   var url=URL.createObjectURL(blob);
   var a=document.createElement("a");
-  a.href=url; a.download="inventario_genesis.csv"; a.click();
+  a.href=url; a.download="inventario_genesis2.csv"; a.click();
   URL.revokeObjectURL(url);
   toast("Inventario exportado","success");
 }
