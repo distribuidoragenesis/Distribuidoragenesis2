@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Distribuidora Genesis 2</title>
+<title>Distribuidora Genesis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
@@ -12,15 +12,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, onValue, set, push, update, remove, get }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-const _savedFbCfg = JSON.parse(localStorage.getItem("lx_fb_config_genesis2") || "null");
+const _savedFbCfg = JSON.parse(localStorage.getItem("lx_fb_config_genesis") || "null");
 const FIREBASE_CONFIG = _savedFbCfg || {
-  apiKey: "AIzaSyBFXv9NEu0ffBhxIB1TlR8sZyxiFTVMVcs",
-  authDomain: "distribuidoragenesis2-98291.firebaseapp.com",
-  databaseURL: "https://distribuidoragenesis2-98291-default-rtdb.firebaseio.com",
-  projectId: "distribuidoragenesis2-98291",
-  storageBucket: "distribuidoragenesis2-98291.firebasestorage.app",
-  messagingSenderId: "572631598494",
-  appId: "1:572631598494:web:c007fc3a3b56988b6a428f"
+  apiKey: "AIzaSyDqKmC1NC46nN_o6WmdLXInPpN4fkiajuQ",
+  authDomain: "distribuidoragenesis-8b529.firebaseapp.com",
+  databaseURL: "https://distribuidoragenesis-8b529-default-rtdb.firebaseio.com",
+  projectId: "distribuidoragenesis-8b529",
+  storageBucket: "distribuidoragenesis-8b529.firebasestorage.app",
+  messagingSenderId: "977442816557",
+  appId: "1:977442816557:web:ec87bd7a308b72520a2ea4"
 };
 const FB_CONFIGURED = !!FIREBASE_CONFIG;
 
@@ -473,7 +473,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
 <nav class="navbar">
   <div class="nav-logo">
     <img id="storeLogo" src="" alt="">
-    <span id="storeNameEl">DISTRIBUIDORA GENESIS 2</span>
+    <span id="storeNameEl">DISTRIBUIDORA GENESIS</span>
   </div>
   <div class="nav-links">
     <button class="nav-btn active" onclick="showPage('shop')">Tienda</button>
@@ -493,7 +493,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
 
 <div class="page active" id="page-shop">
   <div class="hero">
-    <h1 id="heroTitle">Bienvenido a<br><span>DISTRIBUIDORA GENESIS 2</span></h1>
+    <h1 id="heroTitle">Bienvenido a<br><span>DISTRIBUIDORA GENESIS</span></h1>
     <p id="heroSubtitle">Los mejores productos al mejor precio</p>
   </div>
   <h2 class="section-title">Catálogo de Productos</h2>
@@ -753,7 +753,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
   <div class="modal quote-modal">
     <div class="quote-header">
       <div style="font-size:3rem; margin-bottom: 0.5rem">📋</div>
-      <h3 id="quoteStoreName" style="margin:0 0 0.5rem; font-size:1.8rem;">DISTRIBUIDORA GENESIS 2</h3>
+      <h3 id="quoteStoreName" style="margin:0 0 0.5rem; font-size:1.8rem;">DISTRIBUIDORA GENESIS</h3>
       <div style="font-size:0.95rem;color:var(--text-muted);font-weight:500;" id="quoteDate"></div>
     </div>
     <div style="margin-bottom:1.5rem">
@@ -796,7 +796,7 @@ const GT_DATA = {"Guatemala": ["Guatemala", "Santa Catarina Pinula", "San José 
 let products=[], orders=[], cart=[];
 let editingId=null, loggedIn=false, currentPage=1;
 const PAGE_SIZE=24;
-let storeSettings={name:"DISTRIBUIDORA GENESIS 2",desc:"Los mejores productos al mejor precio",logo:"",waNumber:"",credentials:"distribuidora:genesis2024_2",mayoreoConfig:null,shippingZones:{},defaultShipping:25,freeShippingAt:300};
+let storeSettings={name:"DISTRIBUIDORA GENESIS",desc:"Los mejores productos al mejor precio",logo:"",waNumber:"",credentials:"distribuidora:genesis2024",mayoreoConfig:null,shippingZones:{},defaultShipping:25,freeShippingAt:300};
 let mayoreoMode=false, mayoreoTipo="";
 // Tipos de precio: publico y mayoristas (con sub-tipos)
 const PRECIO_TIPOS={
@@ -1229,7 +1229,7 @@ function doTrack(){
 function doLogin(){
   const user=document.getElementById("loginUser").value.trim();
   const pass=document.getElementById("loginPass").value.trim();
-  const[cu,cp]=(storeSettings.credentials||"distribuidora:genesis2024_2").split(":");
+  const[cu,cp]=(storeSettings.credentials||"distribuidora:genesis2024").split(":");
   if(user===cu&&pass===cp){loggedIn=true;document.getElementById("adminNavBtn").style.display="";document.getElementById("adminLoginBtn").style.display="none";showPage("admin");}
   else toast("Credenciales incorrectas","error");
 }
@@ -1474,7 +1474,7 @@ function saveFbConfig(){
   var projectId=document.getElementById("fbProjectId").value.trim();
   if(!apiKey||!dbUrl||!projectId){toast("Completa los tres campos de Firebase","error");return;}
   var cfg={apiKey:apiKey,databaseURL:dbUrl,projectId:projectId,authDomain:projectId+".firebaseapp.com",storageBucket:projectId+".appspot.com"};
-  localStorage.setItem("lx_fb_config_genesis2",JSON.stringify(cfg));
+  localStorage.setItem("lx_fb_config_genesis",JSON.stringify(cfg));
   toast("Configuracion guardada. Recarga la pagina para conectar.","success");
   setTimeout(()=>location.reload(),2000);
 }
@@ -1482,7 +1482,7 @@ function saveFbConfig(){
 function updateFbStatusBadge(){
   var badge=document.getElementById("fbStatusBadge");
   if(!badge)return;
-  var cfg=localStorage.getItem("lx_fb_config_genesis2");
+  var cfg=localStorage.getItem("lx_fb_config_genesis");
   if(window._fb&&window._fb.ready()){
     badge.textContent="Conectado";
     badge.style.background="var(--green-soft)";
@@ -1503,10 +1503,10 @@ function updateFbStatusBadge(){
 }
 
 function saveStoreSettings(){
-  storeSettings.name=document.getElementById("settingName").value.trim()||"DISTRIBUIDORA GENESIS 2";
+  storeSettings.name=document.getElementById("settingName").value.trim()||"DISTRIBUIDORA GENESIS";
   storeSettings.desc=document.getElementById("settingDesc").value.trim();
   storeSettings.waNumber=document.getElementById("settingWA").value.trim();
-  storeSettings.credentials=document.getElementById("settingCreds").value.trim()||"distribuidora:genesis2024_2";
+  storeSettings.credentials=document.getElementById("settingCreds").value.trim()||"distribuidora:genesis2024";
   const url=document.getElementById("settingLogoUrl").value.trim();
   const file=document.getElementById("settingLogoFile").files[0];
   if(file){const r=new FileReader();r.onload=e=>{storeSettings.logo=e.target.result;saveSettings();applyStoreSettings();toast("Tienda guardada","success");};r.readAsDataURL(file);}
@@ -1557,7 +1557,7 @@ function renderShippingZones(){
 
 function openQuote(){
   if(!cart.length){toast("El carrito está vacío","error");return;}
-  document.getElementById("quoteStoreName").textContent=storeSettings.name||"DISTRIBUIDORA GENESIS 2";
+  document.getElementById("quoteStoreName").textContent=storeSettings.name||"DISTRIBUIDORA GENESIS";
   document.getElementById("quoteDate").textContent=new Date().toLocaleDateString("es-GT",{year:"numeric",month:"long",day:"numeric"});
   const tipoLabel=PRECIO_TIPOS[mayoreoTipo||"publico"]?.label||"Público";
   const subtotal=cart.reduce((s,ci)=>{const p=products.find(x=>x.id===ci.id);return s+(p?getPrecioProducto(p)*ci.qty:0);},0);
@@ -1570,7 +1570,7 @@ function openQuote(){
 }
 function printQuote(){window.print();}
 function shareQuoteWhatsApp(){
-  const wa=storeSettings.waNumber, name=storeSettings.name||"DISTRIBUIDORA GENESIS 2";
+  const wa=storeSettings.waNumber, name=storeSettings.name||"DISTRIBUIDORA GENESIS";
   const tipoLabel=PRECIO_TIPOS[mayoreoTipo||"publico"]?.label||"Público";
   let msg="Cotización - "+name+"\n"+new Date().toLocaleDateString("es-GT")+"\nPrecios: "+tipoLabel+"\n";
   const client=document.getElementById("quoteClient").value; if(client) msg+="Cliente: "+client+"\n";
@@ -1593,7 +1593,7 @@ function exportInventoryCSV(){
   var blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
   var url=URL.createObjectURL(blob);
   var a=document.createElement("a");
-  a.href=url; a.download="inventario_genesis2.csv"; a.click();
+  a.href=url; a.download="inventario_genesis.csv"; a.click();
   URL.revokeObjectURL(url);
   toast("Inventario exportado","success");
 }
