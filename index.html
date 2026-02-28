@@ -1563,14 +1563,28 @@ function fCSV(v){
 function importInventoryCSV(e){
   var file=e.target.files[0]; if(!file)return;
   var reader=new FileReader();
-  reader.onload=function(ev){
+  reader.onload=async function(ev){
     try{
       var lines=ev.target.result.replace(/\r/g,"").split("\n").filter(function(l){return l.trim();});
-      if(lines.length<2){toast("Archivo vacio o sin datos","error");return;}
+      if(lines.length<2){toast("Archivo vacío o sin datos","error");return;}
       var header=parseCSVRow(lines[0]).map(function(h){return h.toLowerCase().trim();});
       function gi(keys){for(var k=0;k<keys.length;k++){var i=header.indexOf(keys[k]);if(i>=0)return i;}return -1;}
-      var idx={id:header.indexOf("id"),sku:gi(["sku","clave"]),name:gi(["nombre","name"]),price:gi(["precio","price"]),stock:header.indexOf("stock"),desc:gi(["descripcion","desc"]),imgUrl:gi(["imgurl","img_url","imagen"]),categoria:gi(["categoria","categoría","category"])};
+      var idx={
+        id:header.indexOf("id"),
+        sku:gi(["sku","clave"]),
+        name:gi(["nombre","name"]),
+        price:gi(["precio","price"]),
+        stock:header.indexOf("stock"),
+        desc:gi(["descripcion","desc","descripción"]),
+        imgUrl:gi(["imgurl","img_url","imagen"]),
+        categoria:gi(["categoria","categoría","category"]),
+        precio_media_docena:gi(["precio_media_docena","media_docena"]),
+        precio_docena:gi(["precio_docena","docena"]),
+        precio_fardo:gi(["precio_fardo","fardo"]),
+        precio_mayoristas:gi(["precio_mayoristas","mayoristas"])
+      };
       if(idx.name<0||idx.price<0){toast("El CSV necesita columnas: nombre y precio","error");return;}
+      toast("Subiendo inventario…","");
       var added=0,updated=0;
       for(var i=1;i<lines.length;i++){
         var cols=parseCSVRow(lines[i]);
@@ -1582,14 +1596,29 @@ function importInventoryCSV(e){
         var desc=idx.desc>=0?cols[idx.desc]||"":"";
         var imgUrl=idx.imgUrl>=0?cols[idx.imgUrl]||"":"";
         var categoria=idx.categoria>=0?cols[idx.categoria]||"":"";
+        var precio_media_docena=idx.precio_media_docena>=0?parseFloat(cols[idx.precio_media_docena])||0:0;
+        var precio_docena=idx.precio_docena>=0?parseFloat(cols[idx.precio_docena])||0:0;
+        var precio_fardo=idx.precio_fardo>=0?parseFloat(cols[idx.precio_fardo])||0:0;
+        var precio_mayoristas=idx.precio_mayoristas>=0?parseFloat(cols[idx.precio_mayoristas])||0:0;
         var eid=idx.id>=0?parseInt(cols[idx.id]):NaN;
         var ex=!isNaN(eid)?products.find(function(p){return p.id===eid;}):products.find(function(p){return p.name.toLowerCase()===name.toLowerCase();});
-        if(ex){Object.assign(ex,{sku:sku,name:name,price:price,stock:stock,desc:desc,imgUrl:imgUrl,categoria:categoria});updated++;}
-        else{products.push({id:nextId(),sku:sku,name:name,price:price,stock:stock,desc:desc,img:"",imgUrl:imgUrl,categoria:categoria});added++;}
+        if(ex){Object.assign(ex,{sku:sku,name:name,price:price,stock:stock,desc:desc,imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas});updated++;}
+        else{products.push({id:nextId(),sku:sku,name:name,price:price,stock:stock,desc:desc,img:"",imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas});added++;}
       }
-      saveProducts();renderAdminProducts();populateInventorySelect();renderShop();
-      toast("Importado: "+added+" nuevos, "+updated+" actualizados","success");
-    }catch(err){toast("Error al leer el CSV","error");console.error(err);}
+      localStorage.setItem("lx_products",JSON.stringify(products));
+      if(window._fb && window._fb.ready()){
+        try{
+          await window._fb.saveProducts(products);
+          toast("✅ Subido a la nube: "+added+" nuevos, "+updated+" actualizados","success");
+        }catch(fbErr){
+          console.error("Error subiendo a Firebase:",fbErr);
+          toast("⚠️ Guardado local, pero falló la nube: "+fbErr.message,"error");
+        }
+      }else{
+        toast("Importado (solo local): "+added+" nuevos, "+updated+" actualizados","success");
+      }
+      renderAdminProducts();populateInventorySelect();renderShop();
+    }catch(err){toast("Error al leer el CSV: "+err.message,"error");console.error(err);}
     e.target.value="";
   };
   reader.readAsText(file,"UTF-8");
