@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Distribuidora Genesis 2</title>
+<title>DG Distribuidora Genesis 2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
@@ -12,16 +12,23 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, onValue, set, push, update, remove, get }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBFXv9NEu0ffBhxIB1TlR8sZyxiFTVMVcs",
-  authDomain: "distribuidoragenesis2-98291.firebaseapp.com",
-  databaseURL: "https://distribuidoragenesis2-98291-default-rtdb.firebaseio.com",
-  projectId: "distribuidoragenesis2-98291",
-  storageBucket: "distribuidoragenesis2-98291.firebasestorage.app",
-  messagingSenderId: "572631598494",
-  appId: "1:572631598494:web:c007fc3a3b56988b6a428f"
+const _DEFAULT_CONFIG = {
+  apiKey: "AIzaSyDFT8BgYaxdHyt4f8ae-rh3q09ZHqhHXeE",
+  authDomain: "dgdistribuidoragenesis2.firebaseapp.com",
+  databaseURL: "https://dgdistribuidoragenesis2-default-rtdb.firebaseio.com",
+  projectId: "dgdistribuidoragenesis2",
+  storageBucket: "dgdistribuidoragenesis2.firebasestorage.app",
+  messagingSenderId: "444503809368",
+  appId: "1:444503809368:web:98a15819bd70b969ee192d"
 };
+// Si hay config guardada en localStorage pero es del proyecto antiguo, se descarta automáticamente
+const _savedFbCfg = JSON.parse(localStorage.getItem("lx_fb_config") || "null");
+const _isOldConfig = _savedFbCfg && _savedFbCfg.projectId && !_savedFbCfg.projectId.includes("dgdistribuidoragenesis2");
+if (_isOldConfig) localStorage.removeItem("lx_fb_config");
+const FIREBASE_CONFIG = (!_isOldConfig && _savedFbCfg) ? _savedFbCfg : _DEFAULT_CONFIG;
+const FB_CONFIGURED = true;
 
+// ── Inicializar ────────────────────────────────────────────────
 let db = null;
 let fbReady = false;
 
@@ -34,31 +41,53 @@ function syncStatus(ok, label) {
 }
 
 try {
+  if (!FB_CONFIGURED) throw new Error("Firebase no configurado");
   const app = initializeApp(FIREBASE_CONFIG);
   db = getDatabase(app);
   fbReady = true;
   syncStatus(true, "online");
 } catch(e) {
-  console.warn("Error conectando Firebase:", e);
+  if (!FB_CONFIGURED) {
+    console.info("Firebase pendiente de configurar. Usando modo local.");
+  } else {
+    console.warn("Error conectando Firebase:", e);
+  }
   syncStatus(false, "local");
 }
 
+// ── Exponer funciones al scope global ─────────────────────────
 window._fb = {
   ready: () => fbReady,
+
+  // Escucha cambios en tiempo real en productos
   watchProducts: (cb) => {
     if (!fbReady) return;
     onValue(ref(db, "products"), snap => {
       const data = snap.val();
-      cb(data ? Object.entries(data).map(([k, v]) => ({ _key: k, ...v })) : []);
+      if (data) {
+        const arr = Object.entries(data).map(([k, v]) => ({ _key: k, ...v }));
+        cb(arr);
+      } else {
+        cb([]);
+      }
     });
   },
+
+  // Escucha cambios en tiempo real en pedidos
   watchOrders: (cb) => {
     if (!fbReady) return;
     onValue(ref(db, "orders"), snap => {
       const data = snap.val();
-      cb(data ? Object.entries(data).map(([k, v]) => ({ _key: k, ...v })) : []);
+      if (data) {
+        const arr = Object.entries(data).map(([k, v]) => ({ _key: k, ...v }));
+        cb(arr);
+      } else {
+        cb([]);
+      }
     });
   },
+
+  // Escucha configuración de tienda
   watchSettings: (cb) => {
     if (!fbReady) return;
     onValue(ref(db, "settings"), snap => {
@@ -66,6 +95,8 @@ window._fb = {
       if (data) cb(data);
     });
   },
+
+  // Guardar todos los productos (reemplaza array completo)
   saveProducts: async (productsArr) => {
     if (!fbReady) return;
     const obj = {};
@@ -76,6 +107,8 @@ window._fb = {
     });
     await set(ref(db, "products"), obj);
   },
+
+  // Guardar un producto individual
   saveProduct: async (p) => {
     if (!fbReady) return;
     if (p._key) {
@@ -89,10 +122,14 @@ window._fb = {
       return newRef.key;
     }
   },
+
+  // Eliminar producto
   deleteProduct: async (key) => {
     if (!fbReady || !key) return;
     await remove(ref(db, "products/" + key));
   },
+
+  // Guardar pedido nuevo
   saveOrder: async (order) => {
     if (!fbReady) return null;
     const { _key, ...data } = order;
@@ -100,27 +137,39 @@ window._fb = {
     await set(newRef, data);
     return newRef.key;
   },
+
+  // Actualizar estado de pedido
   updateOrderStatus: async (key, status) => {
     if (!fbReady || !key) return;
     await update(ref(db, "orders/" + key), { status });
   },
+
+  // Guardar configuración
   saveSettings: async (settings) => {
     if (!fbReady) return;
     await set(ref(db, "settings"), settings);
   },
 };
 
+// ── Disparar init cuando Firebase esté listo ──────────────────
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("loadingOverlay").classList.add("show");
   if (fbReady) {
+    // Cargar datos iniciales desde Firebase antes de arrancar
     Promise.all([
       get(ref(db, "products")),
       get(ref(db, "orders")),
       get(ref(db, "settings"))
     ]).then(([pSnap, oSnap, sSnap]) => {
-      if (pSnap.val()) window._fbInitProducts = Object.entries(pSnap.val()).map(([k,v])=>({_key:k,...v}));
-      if (oSnap.val()) window._fbInitOrders = Object.entries(oSnap.val()).map(([k,v])=>({_key:k,...v}));
-      if (sSnap.val()) window._fbInitSettings = sSnap.val();
+      if (pSnap.val()) {
+        window._fbInitProducts = Object.entries(pSnap.val()).map(([k,v])=>({_key:k,...v}));
+      }
+      if (oSnap.val()) {
+        window._fbInitOrders = Object.entries(oSnap.val()).map(([k,v])=>({_key:k,...v}));
+      }
+      if (sSnap.val()) {
+        window._fbInitSettings = sSnap.val();
+      }
       setTimeout(() => window._appInit && window._appInit(), 100);
     }).catch(err => {
       console.warn("Error cargando Firebase, modo local:", err);
@@ -219,6 +268,49 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
 .add-cart-btn:hover { background: var(--accent2); transform: scale(1.05); box-shadow: var(--shadow-glow); }
 .add-cart-btn:active { transform: scale(0.95); }
 .add-cart-btn:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* Share visible button */
+.share-link-btn {
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  font-family: "Inter";
+  text-align: center;
+}
+.share-link-btn:hover { background: var(--accent); color: #fff; box-shadow: var(--shadow-glow); }
+.share-link-btn:active { transform: scale(0.95); }
+
+/* Share feedback popup */
+.share-popup {
+  position: fixed;
+  bottom: 5.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--dark);
+  color: #fff;
+  padding: 0.65rem 1.4rem;
+  border-radius: 100px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: "Inter", sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+.share-popup.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 
 /* Pagination */
 .pagination-bar { display: flex; gap: 0.5rem; justify-content: center; margin-top: 2.5rem; flex-wrap: wrap; }
@@ -352,6 +444,22 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
 .checkout-item-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-weight: 500; }
 .checkout-item-row:last-child { border-bottom: none; }
 
+/* Payment Methods */
+.payment-section-title { font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 1.4rem 0 0.8rem; }
+.payment-options { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; }
+.payment-option { display: flex; align-items: flex-start; gap: 0.9rem; padding: 0.9rem 1rem; border: 2px solid var(--border); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; background: var(--surface); }
+.payment-option:hover { border-color: var(--accent); background: #f0f4ff; }
+.payment-option.selected { border-color: var(--accent); background: #eef2ff; box-shadow: 0 0 0 3px rgba(8,33,204,0.07); }
+.payment-option input[type="radio"] { margin-top: 2px; accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+.payment-option-body { flex: 1; min-width: 0; }
+.payment-option-title { font-weight: 700; font-size: 0.97rem; color: var(--dark); line-height: 1.3; }
+.payment-option-info { font-size: 0.83rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.5; white-space: pre-wrap; }
+.pm-admin-block { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.2rem; margin-bottom: 1rem; }
+.pm-admin-block:last-child { margin-bottom: 0; }
+.pm-toggle-row { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.8rem; }
+.pm-toggle-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.pm-toggle-label { font-weight: 700; font-size: 1rem; color: var(--dark); cursor: pointer; }
+
 /* =========================================
    📱 OPTIMIZACIÓN MÓVIL (Smartphones)
 ========================================= */
@@ -387,6 +495,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
   .product-footer { flex-direction: column; align-items: stretch; gap: 0.8rem; margin-top: 0.8rem; }
   .product-price { font-size: 1.15rem; }
   .add-cart-btn { padding: 0.7rem; font-size: 0.85rem; width: 100%; text-align: center; }
+  .share-link-btn { padding: 0.6rem; font-size: 0.78rem; width: 100%; text-align: center; }
 
   /* Carrito de Compras */
   .cart-container { gap: 1rem; }
@@ -421,10 +530,6 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
 }
 
 @media print { .navbar, .filters-bar, .add-cart-btn, .cart-summary, .modal-footer, .quote-btn, .checkout-btn, .admin-tabs, .admin-actions, .btn-edit, .btn-del, .pagination-bar { display: none !important; } .modal-overlay { position: static !important; background: none !important; display: block !important; } .modal { box-shadow: none !important; max-height: none !important; } }
-.pm-btn { border: 2px solid var(--border); border-radius: var(--radius-md); padding: 1rem 0.5rem; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: 700; background: var(--surface); color: var(--dark); transition: all 0.2s; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
-.pm-btn:hover { border-color: var(--accent); background: #eef1ff; }
-.pm-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; box-shadow: var(--shadow-glow); }
-.pm-btn .pm-icon { font-size: 1.6rem; line-height: 1; }
 </style>
 </head>
 <body>
@@ -432,7 +537,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
 <nav class="navbar">
   <div class="nav-logo">
     <img id="storeLogo" src="" alt="">
-    <span id="storeNameEl">DISTRIBUIDORA GENESIS 2</span>
+    <span id="storeNameEl">DG DISTRIBUIDORA GENESIS 2</span>
   </div>
   <div class="nav-links">
     <button class="nav-btn active" onclick="showPage('shop')">Tienda</button>
@@ -452,7 +557,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
 
 <div class="page active" id="page-shop">
   <div class="hero">
-    <h1 id="heroTitle">Bienvenido a<br><span>DISTRIBUIDORA GENESIS 2</span></h1>
+    <h1 id="heroTitle">Bienvenido a<br><span>DG DISTRIBUIDORA GENESIS 2</span></h1>
     <p id="heroSubtitle">Los mejores productos al mejor precio</p>
   </div>
   <h2 class="section-title">Catálogo de Productos</h2>
@@ -517,7 +622,6 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
     <button class="admin-tab" onclick="switchAdminTab('orders',this)">Pedidos</button>
     <button class="admin-tab" onclick="switchAdminTab('store',this)">Tienda</button>
     <button class="admin-tab" onclick="switchAdminTab('shipping',this)">Envios</button>
-    <button class="admin-tab" onclick="switchAdminTab('pagos',this)">💳 Pagos</button>
   </div>
   <div class="admin-panel active" id="panel-dashboard">
     <div class="stats-grid" id="adminStats"></div>
@@ -585,7 +689,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
     </div>
     <div class="table-wrap">
       <table class="admin-table">
-        <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Depto/Mun</th><th>Total</th><th>Estado</th></tr></thead>
+        <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Depto/Mun</th><th>Pago</th><th>Total</th><th>Estado</th></tr></thead>
         <tbody id="adminOrdersTbody"></tbody>
       </table>
     </div>
@@ -617,6 +721,34 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
       <button class="btn btn-save" onclick="saveStoreSettings()">Guardar Cambios</button>
     </div>
     <div class="settings-card">
+      <h4>💳 Métodos de Pago</h4>
+      <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:1.4rem">Activa los métodos que aceptas. Agrega los datos bancarios que verá el cliente al pagar.</p>
+      <div id="pmAdminContainer">
+        <div class="pm-admin-block">
+          <div class="pm-toggle-row">
+            <input type="checkbox" id="pmCodEnabled">
+            <label class="pm-toggle-label" for="pmCodEnabled">🚚 Pago Contra Entrega</label>
+          </div>
+          <div class="form-group" style="margin:0"><label>Instrucciones para el cliente (opcional)</label><textarea id="pmCodDesc" rows="2" placeholder="Ej: Paga cuando recibas tu pedido en efectivo."></textarea></div>
+        </div>
+        <div class="pm-admin-block">
+          <div class="pm-toggle-row">
+            <input type="checkbox" id="pmTransEnabled">
+            <label class="pm-toggle-label" for="pmTransEnabled">🏦 Transferencia Bancaria</label>
+          </div>
+          <div class="form-group" style="margin:0"><label>Datos bancarios (banco, no. de cuenta, nombre…)</label><textarea id="pmTransDesc" rows="4" placeholder="Banco Industrial&#10;Cuenta: 123-456789-0&#10;A nombre de: Distribuidora Genesis&#10;CUI: 1234567890101"></textarea></div>
+        </div>
+        <div class="pm-admin-block">
+          <div class="pm-toggle-row">
+            <input type="checkbox" id="pmDepEnabled">
+            <label class="pm-toggle-label" for="pmDepEnabled">💵 Depósito Bancario</label>
+          </div>
+          <div class="form-group" style="margin:0"><label>Datos para depósito (banco, no. de cuenta, nombre…)</label><textarea id="pmDepDesc" rows="4" placeholder="Banco Agromercantil&#10;Cuenta: 987-654321-0&#10;A nombre de: Distribuidora Genesis"></textarea></div>
+        </div>
+      </div>
+      <button class="btn btn-save" style="margin-top:1.2rem" onclick="savePaymentMethods()">💾 Guardar Métodos de Pago</button>
+    </div>
+    <div class="settings-card">
       <h4>🏪 Sistema de Precios por Producto</h4>
       <div style="background:var(--green-soft);border:1px solid rgba(16,185,129,0.3);border-radius:var(--radius-sm);padding:1.2rem;color:#065f46;font-size:0.9rem;line-height:1.6">
         <strong>Cómo agregar precio Mayoristas:</strong><br>
@@ -645,59 +777,6 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
       </div>
       <button class="btn btn-save" onclick="saveShippingCost()">Guardar Configuración General</button>
       <div id="shippingZonesList" style="margin-top:2rem"></div>
-    </div>
-  </div>
-
-  <div class="admin-panel" id="panel-pagos">
-    <div class="settings-card">
-      <h4>💳 Métodos de Pago</h4>
-      <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:1.5rem">Activa los métodos disponibles y escribe las instrucciones que verá el cliente al pagar.</p>
-
-      <!-- Contra entrega -->
-      <div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:1.2rem;margin-bottom:1rem;background:var(--bg)">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.8rem">
-          <span style="font-weight:700;font-size:1rem">🚚 Pago contra entrega</span>
-          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem">
-            <input type="checkbox" id="pmCodOn" style="width:18px;height:18px;accent-color:var(--accent)" onchange="savePaymentMethods()"> Habilitado
-          </label>
-        </div>
-        <div class="form-group" style="margin:0">
-          <label style="font-size:0.82rem">Instrucciones para el cliente (opcional)</label>
-          <textarea id="pmCodInfo" rows="2" placeholder="Ej: Paga en efectivo cuando recibas tu pedido." oninput="savePaymentMethods()" style="font-size:0.9rem"></textarea>
-        </div>
-      </div>
-
-      <!-- Transferencia -->
-      <div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:1.2rem;margin-bottom:1rem;background:var(--bg)">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.8rem">
-          <span style="font-weight:700;font-size:1rem">🏦 Transferencia bancaria</span>
-          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem">
-            <input type="checkbox" id="pmTransOn" style="width:18px;height:18px;accent-color:var(--accent)" onchange="savePaymentMethods()"> Habilitado
-          </label>
-        </div>
-        <div class="form-group" style="margin:0">
-          <label style="font-size:0.82rem">Datos bancarios (banco, cuenta, titular…)</label>
-          <textarea id="pmTransInfo" rows="3" placeholder="Banco Industrial&#10;Cuenta: 000-000000-00&#10;Titular: Distribuidora Genesis" oninput="savePaymentMethods()" style="font-size:0.9rem"></textarea>
-        </div>
-      </div>
-
-      <!-- Depósito -->
-      <div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:1.2rem;margin-bottom:1.5rem;background:var(--bg)">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.8rem">
-          <span style="font-weight:700;font-size:1rem">💵 Depósito en efectivo</span>
-          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem">
-            <input type="checkbox" id="pmDepOn" style="width:18px;height:18px;accent-color:var(--accent)" onchange="savePaymentMethods()"> Habilitado
-          </label>
-        </div>
-        <div class="form-group" style="margin:0">
-          <label style="font-size:0.82rem">Instrucciones (agencia, cuenta, banco…)</label>
-          <textarea id="pmDepInfo" rows="3" placeholder="Deposita en cualquier agencia Banrural&#10;Cuenta: 000-000000-00&#10;Titular: Distribuidora Genesis&#10;Envía el comprobante por WhatsApp." oninput="savePaymentMethods()" style="font-size:0.9rem"></textarea>
-        </div>
-      </div>
-
-      <div style="background:var(--green-soft);border:1px solid rgba(16,185,129,0.3);border-radius:var(--radius-sm);padding:1rem;font-size:0.85rem;color:#065f46;line-height:1.5">
-        ✅ Los cambios se guardan automáticamente. Los métodos activos aparecerán en el formulario de compra del cliente.
-      </div>
     </div>
   </div>
 </div>
@@ -753,16 +832,9 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
     <div class="form-group"><label>Municipio *</label><select id="buyerMun" onchange="updateCheckoutTotal()"><option value="">Selecciona dept. primero</option></select></div>
     <div class="form-group"><label>Dirección (opcional)</label><input type="text" id="buyerAddress" placeholder="Calle, colonia, referencia..."></div>
     <div class="form-group"><label>Notas (opcional)</label><textarea id="buyerNotes" placeholder="Instrucciones especiales..."></textarea></div>
-
-    <!-- Método de Pago -->
-    <div class="form-group" id="paymentMethodGroup">
-      <label>Método de Pago *</label>
-      <div id="pmButtons" style="display:grid;gap:0.6rem;margin-top:0.4rem"></div>
-      <input type="hidden" id="buyerPayment" value="">
-      <div id="pmInfoBox" style="display:none;margin-top:0.8rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.9rem 1rem;font-size:0.88rem;line-height:1.65;color:var(--dark)"></div>
-    </div>
-
     <div id="checkoutItemsDiv" class="checkout-items-summary"></div>
+    <p class="payment-section-title">💳 Método de Pago *</p>
+    <div class="payment-options" id="checkoutPaymentOptions"></div>
     <div id="shippingCostDisplay" style="font-size:0.95rem;font-weight:600;color:var(--text-muted);margin-bottom:0.8rem"></div>
     <div id="freeShippingBadge" style="display:none;background:var(--green-soft);color:#065f46;border-radius:var(--radius-sm);padding:0.8rem;font-size:0.95rem;font-weight:700;margin-bottom:1rem;text-align:center">¡Envío gratis en este pedido!</div>
     <div style="border-top:1px solid var(--border);margin:1.5rem 0 1rem;"></div>
@@ -775,7 +847,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
   <div class="modal quote-modal">
     <div class="quote-header">
       <div style="font-size:3rem; margin-bottom: 0.5rem">📋</div>
-      <h3 id="quoteStoreName" style="margin:0 0 0.5rem; font-size:1.8rem;">DISTRIBUIDORA GENESIS 2</h3>
+      <h3 id="quoteStoreName" style="margin:0 0 0.5rem; font-size:1.8rem;">DG DISTRIBUIDORA GENESIS 2</h3>
       <div style="font-size:0.95rem;color:var(--text-muted);font-weight:500;" id="quoteDate"></div>
     </div>
     <div style="margin-bottom:1.5rem">
@@ -799,6 +871,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
       <div style="background:var(--bg);border-radius:var(--radius-md);padding:1.8rem;margin-bottom:1.8rem;border:2px dashed var(--border)">
         <p style="font-size:0.95rem;font-weight:600;color:var(--text-muted);margin-bottom:0.8rem;text-transform:uppercase;letter-spacing:1px;">Tu número de pedido</p>
         <p style="font-family:'Plus Jakarta Sans';font-size:3rem;font-weight:800;color:var(--accent);letter-spacing:1px" id="successOrderId">#000</p>
+        <p id="successPaymentMethod" style="margin-top:0.5rem;font-size:1rem;font-weight:600;color:var(--text-muted)"></p>
       </div>
       <button class="btn-save" style="width:100%;margin-bottom:1rem; padding:1.2rem; font-size:1.05rem;" onclick="goTrackOrder()">Rastrear mi Pedido</button>
       <button class="btn-cancel" style="width:100%; padding:1.2rem; font-size:1.05rem;" onclick="closeSuccess()">Seguir Comprando</button>
@@ -818,7 +891,7 @@ const GT_DATA = {"Guatemala": ["Guatemala", "Santa Catarina Pinula", "San José 
 let products=[], orders=[], cart=[];
 let editingId=null, loggedIn=false, currentPage=1;
 const PAGE_SIZE=24;
-let storeSettings={name:"DISTRIBUIDORA GENESIS 2",desc:"Los mejores productos al mejor precio",logo:"",waNumber:"",credentials:"distribuidora:genesis2024",mayoreoConfig:null,shippingZones:{},defaultShipping:25,freeShippingAt:300,paymentMethods:{cod:{on:true,info:""},trans:{on:false,info:""},dep:{on:false,info:""}}};
+let storeSettings={name:"DG DISTRIBUIDORA GENESIS 2",desc:"Los mejores productos al mejor precio",logo:"",waNumber:"",credentials:"distribuidora:genesis2024",mayoreoConfig:null,shippingZones:{},defaultShipping:25,freeShippingAt:300,paymentMethods:{cod:{enabled:true,label:"Pago Contra Entrega",icon:"🚚",desc:""},transfer:{enabled:false,label:"Transferencia Bancaria",icon:"🏦",desc:""},deposit:{enabled:false,label:"Depósito Bancario",icon:"💵",desc:""}}};
 let mayoreoMode=false, mayoreoTipo="";
 // Tipos de precio: publico y mayoristas (con sub-tipos)
 const PRECIO_TIPOS={
@@ -848,19 +921,19 @@ const getMayoreoDesc=()=>0;
 
 function localLoad(){
   // Compatibilidad — ahora init() maneja la carga
-  cart=JSON.parse(localStorage.getItem("gen2_cart")||"[]");
+  cart=JSON.parse(localStorage.getItem("lx_cart")||"[]");
 }
 function saveProducts(){
-  localStorage.setItem("gen2_products",JSON.stringify(products));
+  localStorage.setItem("lx_products",JSON.stringify(products));
   if(window._fb && window._fb.ready()) window._fb.saveProducts(products);
 }
 function saveOrders(){
-  localStorage.setItem("gen2_orders",JSON.stringify(orders));
+  localStorage.setItem("lx_orders",JSON.stringify(orders));
   // orders se guardan individualmente al crear
 }
-function saveCart(){localStorage.setItem("gen2_cart",JSON.stringify(cart))}
+function saveCart(){localStorage.setItem("lx_cart",JSON.stringify(cart))}
 function saveSettings(){
-  localStorage.setItem("gen2_settings",JSON.stringify(storeSettings));
+  localStorage.setItem("lx_settings",JSON.stringify(storeSettings));
   if(window._fb && window._fb.ready()) window._fb.saveSettings(storeSettings);
 }
 function nextId(){return products.length?Math.max(...products.map(p=>p.id))+1:1}
@@ -868,20 +941,22 @@ function nextOrderId(){return orders.length?Math.max(...orders.map(o=>o.id))+1:1
 
 function init(){
   // Cargar carrito local (siempre local por usuario)
-  cart=JSON.parse(localStorage.getItem("gen2_cart")||"[]");
+  cart=JSON.parse(localStorage.getItem("lx_cart")||"[]");
 
   // Si Firebase trajo datos iniciales, usarlos
   if(window._fbInitProducts) products = window._fbInitProducts;
-  else products=JSON.parse(localStorage.getItem("gen2_products")||"[]");
+  else products=JSON.parse(localStorage.getItem("lx_products")||"[]");
 
   if(window._fbInitOrders) orders = window._fbInitOrders;
-  else orders=JSON.parse(localStorage.getItem("gen2_orders")||"[]");
+  else orders=JSON.parse(localStorage.getItem("lx_orders")||"[]");
 
   if(window._fbInitSettings) Object.assign(storeSettings, window._fbInitSettings);
   else {
-    const saved=JSON.parse(localStorage.getItem("gen2_settings")||"null");
+    const saved=JSON.parse(localStorage.getItem("lx_settings")||"null");
     if(saved) Object.assign(storeSettings,saved);
   }
+  // Forzar siempre el nombre correcto de esta tienda
+  storeSettings.name = "DG DISTRIBUIDORA GENESIS 2";
 
   applyStoreSettings(); populateDeptSelects();
   renderShop(); updateCartCount();
@@ -891,18 +966,19 @@ function init(){
   if(window._fb && window._fb.ready()){
     window._fb.watchProducts(arr=>{
       products=arr;
-      localStorage.setItem("gen2_products",JSON.stringify(arr));
+      localStorage.setItem("lx_products",JSON.stringify(arr));
       renderShop();
       if(loggedIn) renderAdminProducts();
     });
     window._fb.watchOrders(arr=>{
       orders=arr;
-      localStorage.setItem("gen2_orders",JSON.stringify(arr));
+      localStorage.setItem("lx_orders",JSON.stringify(arr));
       if(loggedIn) renderAdminOrders();
     });
     window._fb.watchSettings(s=>{
       Object.assign(storeSettings,s);
-      localStorage.setItem("gen2_settings",JSON.stringify(storeSettings));
+      storeSettings.name = "DG DISTRIBUIDORA GENESIS 2";
+      localStorage.setItem("lx_settings",JSON.stringify(storeSettings));
       applyStoreSettings();
     });
   }
@@ -928,12 +1004,7 @@ function applyStoreSettings(){
   if(si("defaultShippingCost"))si("defaultShippingCost").value=s.defaultShipping??25;
   if(si("freeShippingThreshold"))si("freeShippingThreshold").value=s.freeShippingAt??300;
   renderShippingZones();
-  // Sync payment admin UI
-  const pm=storeSettings.paymentMethods||{};
-  const si2=id=>document.getElementById(id);
-  if(si2("pmCodOn")){si2("pmCodOn").checked=pm.cod?.on||false; si2("pmCodInfo").value=pm.cod?.info||"";}
-  if(si2("pmTransOn")){si2("pmTransOn").checked=pm.trans?.on||false; si2("pmTransInfo").value=pm.trans?.info||"";}
-  if(si2("pmDepOn")){si2("pmDepOn").checked=pm.dep?.on||false; si2("pmDepInfo").value=pm.dep?.info||"";}
+  loadPaymentMethodsAdmin();
 }
 
 function populateDeptSelects(){
@@ -1024,7 +1095,10 @@ function renderShop(){
             "<div class='product-price'>Q"+precio.toFixed(2)+"</div>"+
             "<div class='product-stock-label'>"+(avail?"Stock: "+p.stock:"Agotado")+"</div>"+
           "</div>"+
-          "<button class='add-cart-btn' onclick='addToCart("+p.id+")' "+(avail?"":"disabled")+">+ Agregar</button>"+
+          "<div style='display:flex;flex-direction:column;gap:0.4rem;flex-shrink:0;'>"+
+            "<button class='add-cart-btn' onclick='addToCart("+p.id+")' "+(avail?"":"disabled")+">+ Agregar</button>"+
+            "<button class='share-link-btn' onclick='shareProduct("+p.id+",event)' title='Compartir producto'>🔗 Compartir</button>"+
+          "</div>"+
         "</div>"+
       "</div>"+
     "</div>";
@@ -1163,9 +1237,8 @@ function openCheckout(){
   populateDeptSelects();
   const div=document.getElementById("checkoutItemsDiv");
   div.innerHTML=cart.map(ci=>{const p=products.find(x=>x.id===ci.id);if(!p)return"";const pu=getPrecioProducto(p);return"<div class='checkout-item-row'><span>"+p.name+" <strong>x"+ci.qty+"</strong></span><span>Q"+(pu*ci.qty).toFixed(2)+"</span></div>";}).join("");
+  renderCheckoutPaymentOptions();
   updateCheckoutTotal();
-  document.getElementById("buyerPayment").value="";
-  renderPaymentButtons();
   document.getElementById("checkoutModal").classList.add("open");
 }
 function getShippingCost(dept,mun){
@@ -1192,42 +1265,6 @@ function loadMunicipios(){
   if(dept&&GT_DATA[dept]) GT_DATA[dept].forEach(m=>{const o=document.createElement("option");o.value=m;o.textContent=m;munSel.appendChild(o);});
   updateCheckoutTotal();
 }
-function savePaymentMethods(){
-  if(!storeSettings.paymentMethods) storeSettings.paymentMethods={};
-  storeSettings.paymentMethods.cod={on:document.getElementById("pmCodOn")?.checked||false,info:document.getElementById("pmCodInfo")?.value||""};
-  storeSettings.paymentMethods.trans={on:document.getElementById("pmTransOn")?.checked||false,info:document.getElementById("pmTransInfo")?.value||""};
-  storeSettings.paymentMethods.dep={on:document.getElementById("pmDepOn")?.checked||false,info:document.getElementById("pmDepInfo")?.value||""};
-  saveSettings();
-}
-function renderPaymentButtons(){
-  const pm=storeSettings.paymentMethods||{};
-  const methods=[
-    {key:"cod",icon:"🚚",label:"Contra entrega",on:pm.cod?.on,info:pm.cod?.info||""},
-    {key:"trans",icon:"🏦",label:"Transferencia",on:pm.trans?.on,info:pm.trans?.info||""},
-    {key:"dep",icon:"💵",label:"Depósito",on:pm.dep?.on,info:pm.dep?.info||""}
-  ].filter(m=>m.on);
-  const wrap=document.getElementById("pmButtons");
-  const group=document.getElementById("paymentMethodGroup");
-  if(!wrap) return;
-  if(!methods.length){group.style.display="none";return;}
-  group.style.display="";
-  wrap.style.gridTemplateColumns=methods.length===1?"1fr":methods.length===2?"1fr 1fr":"1fr 1fr 1fr";
-  wrap.innerHTML=methods.map(m=>
-    `<button type="button" class="pm-btn" id="pmb_${m.key}" onclick="pickPayment('${m.key}','${encodeURIComponent(m.info)}')">`+
-    `<span class="pm-icon">${m.icon}</span><span>${m.label}</span></button>`
-  ).join("");
-  if(methods.length===1) pickPayment(methods[0].key, methods[0].info);
-}
-function pickPayment(key, rawInfo){
-  document.getElementById("buyerPayment").value=key;
-  document.querySelectorAll(".pm-btn").forEach(b=>b.classList.remove("active"));
-  const btn=document.getElementById("pmb_"+key); if(btn) btn.classList.add("active");
-  const info=decodeURIComponent(rawInfo);
-  const box=document.getElementById("pmInfoBox");
-  if(info.trim()){box.style.display="block";box.innerHTML="<strong style='font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:0.4rem'>Instrucciones de pago</strong>"+info.replace(/\n/g,"<br>");}
-  else box.style.display="none";
-}
-
 function placeOrder(){
   const name=document.getElementById("buyerName").value.trim();
   const contact=document.getElementById("buyerContact").value.trim();
@@ -1235,27 +1272,27 @@ function placeOrder(){
   const mun=document.getElementById("buyerMun").value;
   const address=document.getElementById("buyerAddress").value.trim();
   const notes=document.getElementById("buyerNotes").value.trim();
-  const payment=document.getElementById("buyerPayment").value;
   if(!name||!contact||!dept||!mun){toast("Completa todos los campos requeridos (*)","error");return;}
-  // validar pago solo si hay métodos activos
+  // Validar método de pago seleccionado
+  const pmRadio=document.querySelector('input[name="paymentMethod"]:checked');
+  if(!pmRadio){toast("Selecciona un método de pago","error");return;}
+  const pmKey=pmRadio.value;
   const pm=storeSettings.paymentMethods||{};
-  const anyOn=pm.cod?.on||pm.trans?.on||pm.dep?.on;
-  if(anyOn&&!payment){toast("Selecciona un método de pago","error");return;}
+  const pmData=pm[pmKey]||{label:pmKey,icon:"💳"};
   const{subtotal,shipping,total}=updateCheckoutTotal();
   const items=cart.map(ci=>{const p=products.find(x=>x.id===ci.id);const pu=p?getPrecioProducto(p):0;return p?{id:p.id,name:p.name,price:pu,qty:ci.qty}:null;}).filter(Boolean);
   items.forEach(it=>{const p=products.find(x=>x.id===it.id);if(p)p.stock=Math.max(0,p.stock-it.qty);});
   saveProducts();
-  const pmLabels={cod:"Contra entrega",trans:"Transferencia bancaria",dep:"Depósito en efectivo"};
-  const order={id:nextOrderId(),date:new Date().toISOString(),status:"Pendiente",subtotal,shipping,total,payment:payment||null,paymentLabel:pmLabels[payment]||null,customer:{name,contact,dept,mun,address,notes},items,mayoreoTipo:mayoreoTipo||null};
+  const order={id:nextOrderId(),date:new Date().toISOString(),status:"Pendiente",subtotal,shipping,total,payment:{key:pmKey,label:pmData.label,icon:pmData.icon||"💳"},customer:{name,contact,dept,mun,address,notes},items,mayoreoTipo:mayoreoTipo||null};
   orders.push(order);
-  localStorage.setItem("gen2_orders",JSON.stringify(orders));
+  localStorage.setItem("lx_orders",JSON.stringify(orders));
   if(window._fb && window._fb.ready()) window._fb.saveOrder(order);
   const wa=storeSettings.waNumber;
   if(wa){
     const tipoLabel=PRECIO_TIPOS[mayoreoTipo||"publico"]?.label||"Público";
     let msg="Nuevo Pedido #"+order.id+"\n"+name+" | "+contact+"\n"+dept+", "+mun+(address?" - "+address:"")+"\n";
     if(mayoreoMode&&mayoreoTipo&&mayoreoTipo!=="publico") msg+="Precio "+tipoLabel+"\n";
-    if(payment) msg+="💳 Pago: "+pmLabels[payment]+"\n";
+    msg+="Método de pago: "+pmData.icon+" "+pmData.label+"\n";
     msg+="\nProductos:\n"; items.forEach(it=>{msg+="- "+it.name+" x"+it.qty+" = Q"+(it.price*it.qty).toFixed(2)+"\n";});
     msg+="\nSubtotal: Q"+subtotal.toFixed(2)+"\nEnvío: Q"+shipping.toFixed(2)+"\nTOTAL: Q"+total.toFixed(2);
     if(notes) msg+="\nNotas: "+notes;
@@ -1264,6 +1301,9 @@ function placeOrder(){
   cart=[]; saveCart(); updateCartCount();
   document.getElementById("checkoutModal").classList.remove("open");
   document.getElementById("successOrderId").textContent="#"+order.id;
+  // Mostrar método de pago en modal de éxito
+  const spEl=document.getElementById("successPaymentMethod");
+  if(spEl) spEl.textContent=(pmData.icon||"💳")+" "+pmData.label;
   document.getElementById("successModal").classList.add("open");
   renderShop();
 }
@@ -1302,7 +1342,7 @@ function doTrack(){
 function doLogin(){
   const user=document.getElementById("loginUser").value.trim();
   const pass=document.getElementById("loginPass").value.trim();
-  const[cu,cp]=(storeSettings.credentials||"distribuidora:genesis2024").split(":");
+  const[cu,cp]=(storeSettings.credentials||"dgdistribuidora:genesis2024").split(":");
   if(user===cu&&pass===cp){loggedIn=true;document.getElementById("adminNavBtn").style.display="";document.getElementById("adminLoginBtn").style.display="none";showPage("admin");}
   else toast("Credenciales incorrectas","error");
 }
@@ -1319,7 +1359,6 @@ function switchAdminTab(tab,el){
   if(tab==="orders") renderAdminOrders();
   if(tab==="store") applyStoreSettings();
   if(tab==="shipping"){populateDeptSelects();renderShippingZones();}
-  if(tab==="pagos") applyStoreSettings();
 }
 
 function renderAdminDashboard(){
@@ -1522,20 +1561,21 @@ function renderAdminOrders(){
   }).reverse();
   document.getElementById("adminOrdersTbody").innerHTML=filtered.map(o=>{
     const d=new Date(o.date).toLocaleDateString("es-GT");
-    const pmIcons={cod:"🚚",trans:"🏦",dep:"💵"};
-    const pmBadge=o.payment?`<br><small style="color:var(--accent);font-weight:600">${pmIcons[o.payment]||""} ${o.paymentLabel||o.payment}</small>`:"";
+    const pmLabel=o.payment?(o.payment.icon+" "+o.payment.label):"—";
     return "<tr><td>#"+o.id+"</td><td>"+d+"</td><td><strong>"+o.customer.name+"</strong><br><small>"+o.customer.contact+"</small></td>"+
-      "<td>"+o.customer.dept+"<br><small>"+o.customer.mun+"</small></td><td><strong>Q"+o.total.toFixed(2)+"</strong>"+pmBadge+"</td>"+
+      "<td>"+o.customer.dept+"<br><small>"+o.customer.mun+"</small></td>"+
+      "<td style='white-space:nowrap;font-size:0.87rem'>"+pmLabel+"</td>"+
+      "<td><strong>Q"+o.total.toFixed(2)+"</strong></td>"+
       "<td><select style='border:1px solid var(--border);border-radius:6px;padding:0.4rem;cursor:pointer;font-size:0.85rem;background:var(--surface);font-weight:600' onchange='changeOrderStatus("+o.id+",this.value)'>"+
         STEPS.map(s=>"<option"+(o.status===s?" selected":"")+">"+s+"</option>").join("")+
       "</select></td></tr>";
-  }).join()||"<tr><td colspan='6' style='text-align:center;color:var(--text-muted)'>Sin pedidos</td></tr>";
+  }).join()||"<tr><td colspan='7' style='text-align:center;color:var(--text-muted)'>Sin pedidos</td></tr>";
 }
 function changeOrderStatus(id,status){
   const o=orders.find(x=>x.id===id);
   if(o){
     o.status=status;
-    localStorage.setItem("gen2_orders",JSON.stringify(orders));
+    localStorage.setItem("lx_orders",JSON.stringify(orders));
     if(window._fb && window._fb.ready() && o._key){
       window._fb.updateOrderStatus(o._key, status);
     }
@@ -1550,7 +1590,7 @@ function saveFbConfig(){
   var projectId=document.getElementById("fbProjectId").value.trim();
   if(!apiKey||!dbUrl||!projectId){toast("Completa los tres campos de Firebase","error");return;}
   var cfg={apiKey:apiKey,databaseURL:dbUrl,projectId:projectId,authDomain:projectId+".firebaseapp.com",storageBucket:projectId+".appspot.com"};
-  localStorage.setItem("lx_fb_config_genesis2",JSON.stringify(cfg));
+  localStorage.setItem("lx_fb_config",JSON.stringify(cfg));
   toast("Configuracion guardada. Recarga la pagina para conectar.","success");
   setTimeout(()=>location.reload(),2000);
 }
@@ -1558,7 +1598,7 @@ function saveFbConfig(){
 function updateFbStatusBadge(){
   var badge=document.getElementById("fbStatusBadge");
   if(!badge)return;
-  var cfg=localStorage.getItem("lx_fb_config_genesis2");
+  var cfg=localStorage.getItem("lx_fb_config");
   if(window._fb&&window._fb.ready()){
     badge.textContent="Conectado";
     badge.style.background="var(--green-soft)";
@@ -1579,7 +1619,7 @@ function updateFbStatusBadge(){
 }
 
 function saveStoreSettings(){
-  storeSettings.name=document.getElementById("settingName").value.trim()||"DISTRIBUIDORA GENESIS 2";
+  storeSettings.name=document.getElementById("settingName").value.trim()||"DG DISTRIBUIDORA GENESIS 2";
   storeSettings.desc=document.getElementById("settingDesc").value.trim();
   storeSettings.waNumber=document.getElementById("settingWA").value.trim();
   storeSettings.credentials=document.getElementById("settingCreds").value.trim()||"distribuidora:genesis2024";
@@ -1633,7 +1673,7 @@ function renderShippingZones(){
 
 function openQuote(){
   if(!cart.length){toast("El carrito está vacío","error");return;}
-  document.getElementById("quoteStoreName").textContent=storeSettings.name||"DISTRIBUIDORA GENESIS 2";
+  document.getElementById("quoteStoreName").textContent=storeSettings.name||"DG DISTRIBUIDORA GENESIS 2";
   document.getElementById("quoteDate").textContent=new Date().toLocaleDateString("es-GT",{year:"numeric",month:"long",day:"numeric"});
   const tipoLabel=PRECIO_TIPOS[mayoreoTipo||"publico"]?.label||"Público";
   const subtotal=cart.reduce((s,ci)=>{const p=products.find(x=>x.id===ci.id);return s+(p?getPrecioProducto(p)*ci.qty:0);},0);
@@ -1646,7 +1686,7 @@ function openQuote(){
 }
 function printQuote(){window.print();}
 function shareQuoteWhatsApp(){
-  const wa=storeSettings.waNumber, name=storeSettings.name||"DISTRIBUIDORA GENESIS 2";
+  const wa=storeSettings.waNumber, name=storeSettings.name||"DG DISTRIBUIDORA GENESIS 2";
   const tipoLabel=PRECIO_TIPOS[mayoreoTipo||"publico"]?.label||"Público";
   let msg="Cotización - "+name+"\n"+new Date().toLocaleDateString("es-GT")+"\nPrecios: "+tipoLabel+"\n";
   const client=document.getElementById("quoteClient").value; if(client) msg+="Cliente: "+client+"\n";
@@ -1669,7 +1709,7 @@ function exportInventoryCSV(){
   var blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
   var url=URL.createObjectURL(blob);
   var a=document.createElement("a");
-  a.href=url; a.download="inventario_genesis2.csv"; a.click();
+  a.href=url; a.download="inventario_genesis.csv"; a.click();
   URL.revokeObjectURL(url);
   toast("Inventario exportado","success");
 }
@@ -1723,10 +1763,17 @@ function importInventoryCSV(e){
         var precio_mayoristas=idx.precio_mayoristas>=0?parseFloat(cols[idx.precio_mayoristas])||0:0;
         var eid=idx.id>=0?parseInt(cols[idx.id]):NaN;
         var ex=!isNaN(eid)?products.find(function(p){return p.id===eid;}):products.find(function(p){return p.name.toLowerCase()===name.toLowerCase();});
-        if(ex){Object.assign(ex,{sku:sku,name:name,price:price,stock:stock,desc:desc,imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas});updated++;}
-        else{products.push({id:nextId(),sku:sku,name:name,price:price,stock:stock,desc:desc,img:"",imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas});added++;}
+        if(ex){
+          Object.assign(ex,{sku:sku,name:name,price:price,stock:stock,desc:desc,imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas});
+          updated++;
+        }else{
+          products.push({id:nextId(),sku:sku,name:name,price:price,stock:stock,desc:desc,img:"",imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas});
+          added++;
+        }
       }
+      // Guardar localmente primero
       localStorage.setItem("lx_products",JSON.stringify(products));
+      // Luego subir a Firebase y esperar a que termine
       if(window._fb && window._fb.ready()){
         try{
           await window._fb.saveProducts(products);
@@ -1759,7 +1806,97 @@ function parseCSVRow(line){
 }
 
 
+
+// ── MÉTODOS DE PAGO ──────────────────────────────────────────────────────────
+
+function getPaymentMethods(){
+  const pm = storeSettings.paymentMethods;
+  if(!pm) return {cod:{enabled:true,label:"Pago Contra Entrega",icon:"🚚",desc:""},transfer:{enabled:false,label:"Transferencia Bancaria",icon:"🏦",desc:""},deposit:{enabled:false,label:"Depósito Bancario",icon:"💵",desc:""}};
+  return pm;
+}
+
+function renderCheckoutPaymentOptions(){
+  const cont = document.getElementById("checkoutPaymentOptions");
+  if(!cont) return;
+  const pm = getPaymentMethods();
+  const active = Object.entries(pm).filter(([,v])=>v.enabled);
+  if(!active.length){
+    cont.innerHTML = "<p style='color:var(--text-muted);font-size:0.9rem;padding:0.5rem 0'>Sin métodos de pago configurados. Contacta al negocio.</p>";
+    return;
+  }
+  cont.innerHTML = active.map(([key,m],i)=>{
+    const checked = i===0 ? "checked" : "";
+    const selClass = i===0 ? " selected" : "";
+    const infoHtml = m.desc ? "<div class='payment-option-info'>"+m.desc.replace(/</g,"&lt;")+"</div>" : "";
+    return "<label class='payment-option"+selClass+"' onclick='selectPaymentOption(this)'>"
+      +"<input type='radio' name='paymentMethod' value='"+key+"' "+checked+">"
+      +"<div class='payment-option-body'><div class='payment-option-title'>"+m.icon+" "+m.label+"</div>"+infoHtml+"</div>"
+      +"</label>";
+  }).join("");
+}
+
+function selectPaymentOption(label){
+  document.querySelectorAll(".payment-option").forEach(el=>el.classList.remove("selected"));
+  label.classList.add("selected");
+  const radio = label.querySelector("input[type=radio]");
+  if(radio) radio.checked = true;
+}
+
+function loadPaymentMethodsAdmin(){
+  const pm = getPaymentMethods();
+  const si = id=>document.getElementById(id);
+  if(si("pmCodEnabled"))   si("pmCodEnabled").checked   = pm.cod?.enabled   ?? true;
+  if(si("pmCodDesc"))      si("pmCodDesc").value         = pm.cod?.desc      || "";
+  if(si("pmTransEnabled")) si("pmTransEnabled").checked  = pm.transfer?.enabled ?? false;
+  if(si("pmTransDesc"))    si("pmTransDesc").value        = pm.transfer?.desc  || "";
+  if(si("pmDepEnabled"))   si("pmDepEnabled").checked    = pm.deposit?.enabled  ?? false;
+  if(si("pmDepDesc"))      si("pmDepDesc").value          = pm.deposit?.desc   || "";
+}
+
+function savePaymentMethods(){
+  const si = id=>document.getElementById(id);
+  storeSettings.paymentMethods = {
+    cod:      {enabled: si("pmCodEnabled")?.checked   || false, label:"Pago Contra Entrega",   icon:"🚚", desc: si("pmCodDesc")?.value.trim()   || ""},
+    transfer: {enabled: si("pmTransEnabled")?.checked || false, label:"Transferencia Bancaria", icon:"🏦", desc: si("pmTransDesc")?.value.trim() || ""},
+    deposit:  {enabled: si("pmDepEnabled")?.checked   || false, label:"Depósito Bancario",      icon:"💵", desc: si("pmDepDesc")?.value.trim()   || ""}
+  };
+  saveSettings();
+  toast("Métodos de pago guardados ✓","success");
+}
+
 let _toastTimer;
+let _sharePopupTimer;
+
+function shareProduct(id, e) {
+  e.stopPropagation();
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  const base = window.location.href.split('?')[0];
+  const url = base + '?producto=' + encodeURIComponent(p.name);
+  const showPopup = (msg) => {
+    const el = document.getElementById('sharePopup');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(_sharePopupTimer);
+    _sharePopupTimer = setTimeout(() => el.classList.remove('show'), 2600);
+  };
+  if (navigator.share) {
+    navigator.share({
+      title: p.name,
+      text: p.name + ' — Q' + (p.price || 0).toFixed(2),
+      url: url
+    }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => showPopup('🔗 Enlace copiado'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showPopup('🔗 Enlace copiado');
+  }
+}
+
 function toast(msg,type){
   const el=document.getElementById("toast");
   el.textContent=msg; el.className="toast show"+(type?" "+type:"");
@@ -1768,5 +1905,6 @@ function toast(msg,type){
 
 // Init manejado por el módulo Firebase arriba
 </script>
+<div id="sharePopup" class="share-popup"></div>
 </body>
 </html>
