@@ -137,10 +137,10 @@ document.addEventListener("DOMContentLoaded", () => {
 :root {
   --dark: #0f172a;
   --dark-soft: #1e293b;
-  --accent: #6366f1;
-  --accent2: #4f46e5;
-  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
-  --gradient-secondary: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --accent: #0821CC;
+  --accent2: #02116B;
+  --gradient-primary: linear-gradient(135deg, #0821CC 0%, #02116B 100%);
+  --gradient-secondary: linear-gradient(135deg, #0821CC 0%, #02116B 100%);
   --bg: #f8fafc;
   --surface: #ffffff;
   --border: #e2e8f0;
@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
   --shadow-sm: 0 4px 6px -1px rgba(0,0,0,0.05);
   --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.05);
   --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.05);
-  --shadow-glow: 0 8px 20px rgba(99, 102, 241, 0.3);
+  --shadow-glow: 0 8px 20px rgba(8, 33, 204, 0.3);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -421,6 +421,10 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
 }
 
 @media print { .navbar, .filters-bar, .add-cart-btn, .cart-summary, .modal-footer, .quote-btn, .checkout-btn, .admin-tabs, .admin-actions, .btn-edit, .btn-del, .pagination-bar { display: none !important; } .modal-overlay { position: static !important; background: none !important; display: block !important; } .modal { box-shadow: none !important; max-height: none !important; } }
+.pm-btn { border: 2px solid var(--border); border-radius: var(--radius-md); padding: 1rem 0.5rem; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: 700; background: var(--surface); color: var(--dark); transition: all 0.2s; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+.pm-btn:hover { border-color: var(--accent); background: #eef1ff; }
+.pm-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; box-shadow: var(--shadow-glow); }
+.pm-btn .pm-icon { font-size: 1.6rem; line-height: 1; }
 </style>
 </head>
 <body>
@@ -513,6 +517,7 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
     <button class="admin-tab" onclick="switchAdminTab('orders',this)">Pedidos</button>
     <button class="admin-tab" onclick="switchAdminTab('store',this)">Tienda</button>
     <button class="admin-tab" onclick="switchAdminTab('shipping',this)">Envios</button>
+    <button class="admin-tab" onclick="switchAdminTab('pagos',this)">💳 Pagos</button>
   </div>
   <div class="admin-panel active" id="panel-dashboard">
     <div class="stats-grid" id="adminStats"></div>
@@ -642,6 +647,59 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
       <div id="shippingZonesList" style="margin-top:2rem"></div>
     </div>
   </div>
+
+  <div class="admin-panel" id="panel-pagos">
+    <div class="settings-card">
+      <h4>💳 Métodos de Pago</h4>
+      <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:1.5rem">Activa los métodos disponibles y escribe las instrucciones que verá el cliente al pagar.</p>
+
+      <!-- Contra entrega -->
+      <div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:1.2rem;margin-bottom:1rem;background:var(--bg)">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.8rem">
+          <span style="font-weight:700;font-size:1rem">🚚 Pago contra entrega</span>
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem">
+            <input type="checkbox" id="pmCodOn" style="width:18px;height:18px;accent-color:var(--accent)" onchange="savePaymentMethods()"> Habilitado
+          </label>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:0.82rem">Instrucciones para el cliente (opcional)</label>
+          <textarea id="pmCodInfo" rows="2" placeholder="Ej: Paga en efectivo cuando recibas tu pedido." oninput="savePaymentMethods()" style="font-size:0.9rem"></textarea>
+        </div>
+      </div>
+
+      <!-- Transferencia -->
+      <div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:1.2rem;margin-bottom:1rem;background:var(--bg)">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.8rem">
+          <span style="font-weight:700;font-size:1rem">🏦 Transferencia bancaria</span>
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem">
+            <input type="checkbox" id="pmTransOn" style="width:18px;height:18px;accent-color:var(--accent)" onchange="savePaymentMethods()"> Habilitado
+          </label>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:0.82rem">Datos bancarios (banco, cuenta, titular…)</label>
+          <textarea id="pmTransInfo" rows="3" placeholder="Banco Industrial&#10;Cuenta: 000-000000-00&#10;Titular: Distribuidora Genesis" oninput="savePaymentMethods()" style="font-size:0.9rem"></textarea>
+        </div>
+      </div>
+
+      <!-- Depósito -->
+      <div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:1.2rem;margin-bottom:1.5rem;background:var(--bg)">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.8rem">
+          <span style="font-weight:700;font-size:1rem">💵 Depósito en efectivo</span>
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem">
+            <input type="checkbox" id="pmDepOn" style="width:18px;height:18px;accent-color:var(--accent)" onchange="savePaymentMethods()"> Habilitado
+          </label>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:0.82rem">Instrucciones (agencia, cuenta, banco…)</label>
+          <textarea id="pmDepInfo" rows="3" placeholder="Deposita en cualquier agencia Banrural&#10;Cuenta: 000-000000-00&#10;Titular: Distribuidora Genesis&#10;Envía el comprobante por WhatsApp." oninput="savePaymentMethods()" style="font-size:0.9rem"></textarea>
+        </div>
+      </div>
+
+      <div style="background:var(--green-soft);border:1px solid rgba(16,185,129,0.3);border-radius:var(--radius-sm);padding:1rem;font-size:0.85rem;color:#065f46;line-height:1.5">
+        ✅ Los cambios se guardan automáticamente. Los métodos activos aparecerán en el formulario de compra del cliente.
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="modalOverlay">
@@ -695,6 +753,15 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
     <div class="form-group"><label>Municipio *</label><select id="buyerMun" onchange="updateCheckoutTotal()"><option value="">Selecciona dept. primero</option></select></div>
     <div class="form-group"><label>Dirección (opcional)</label><input type="text" id="buyerAddress" placeholder="Calle, colonia, referencia..."></div>
     <div class="form-group"><label>Notas (opcional)</label><textarea id="buyerNotes" placeholder="Instrucciones especiales..."></textarea></div>
+
+    <!-- Método de Pago -->
+    <div class="form-group" id="paymentMethodGroup">
+      <label>Método de Pago *</label>
+      <div id="pmButtons" style="display:grid;gap:0.6rem;margin-top:0.4rem"></div>
+      <input type="hidden" id="buyerPayment" value="">
+      <div id="pmInfoBox" style="display:none;margin-top:0.8rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.9rem 1rem;font-size:0.88rem;line-height:1.65;color:var(--dark)"></div>
+    </div>
+
     <div id="checkoutItemsDiv" class="checkout-items-summary"></div>
     <div id="shippingCostDisplay" style="font-size:0.95rem;font-weight:600;color:var(--text-muted);margin-bottom:0.8rem"></div>
     <div id="freeShippingBadge" style="display:none;background:var(--green-soft);color:#065f46;border-radius:var(--radius-sm);padding:0.8rem;font-size:0.95rem;font-weight:700;margin-bottom:1rem;text-align:center">¡Envío gratis en este pedido!</div>
@@ -751,7 +818,7 @@ const GT_DATA = {"Guatemala": ["Guatemala", "Santa Catarina Pinula", "San José 
 let products=[], orders=[], cart=[];
 let editingId=null, loggedIn=false, currentPage=1;
 const PAGE_SIZE=24;
-let storeSettings={name:"DISTRIBUIDORA GENESIS 2",desc:"Los mejores productos al mejor precio",logo:"",waNumber:"",credentials:"distribuidora:genesis2024",mayoreoConfig:null,shippingZones:{},defaultShipping:25,freeShippingAt:300};
+let storeSettings={name:"DISTRIBUIDORA GENESIS 2",desc:"Los mejores productos al mejor precio",logo:"",waNumber:"",credentials:"distribuidora:genesis2024",mayoreoConfig:null,shippingZones:{},defaultShipping:25,freeShippingAt:300,paymentMethods:{cod:{on:true,info:""},trans:{on:false,info:""},dep:{on:false,info:""}}};
 let mayoreoMode=false, mayoreoTipo="";
 // Tipos de precio: publico y mayoristas (con sub-tipos)
 const PRECIO_TIPOS={
@@ -861,6 +928,12 @@ function applyStoreSettings(){
   if(si("defaultShippingCost"))si("defaultShippingCost").value=s.defaultShipping??25;
   if(si("freeShippingThreshold"))si("freeShippingThreshold").value=s.freeShippingAt??300;
   renderShippingZones();
+  // Sync payment admin UI
+  const pm=storeSettings.paymentMethods||{};
+  const si2=id=>document.getElementById(id);
+  if(si2("pmCodOn")){si2("pmCodOn").checked=pm.cod?.on||false; si2("pmCodInfo").value=pm.cod?.info||"";}
+  if(si2("pmTransOn")){si2("pmTransOn").checked=pm.trans?.on||false; si2("pmTransInfo").value=pm.trans?.info||"";}
+  if(si2("pmDepOn")){si2("pmDepOn").checked=pm.dep?.on||false; si2("pmDepInfo").value=pm.dep?.info||"";}
 }
 
 function populateDeptSelects(){
@@ -1091,6 +1164,8 @@ function openCheckout(){
   const div=document.getElementById("checkoutItemsDiv");
   div.innerHTML=cart.map(ci=>{const p=products.find(x=>x.id===ci.id);if(!p)return"";const pu=getPrecioProducto(p);return"<div class='checkout-item-row'><span>"+p.name+" <strong>x"+ci.qty+"</strong></span><span>Q"+(pu*ci.qty).toFixed(2)+"</span></div>";}).join("");
   updateCheckoutTotal();
+  document.getElementById("buyerPayment").value="";
+  renderPaymentButtons();
   document.getElementById("checkoutModal").classList.add("open");
 }
 function getShippingCost(dept,mun){
@@ -1117,6 +1192,42 @@ function loadMunicipios(){
   if(dept&&GT_DATA[dept]) GT_DATA[dept].forEach(m=>{const o=document.createElement("option");o.value=m;o.textContent=m;munSel.appendChild(o);});
   updateCheckoutTotal();
 }
+function savePaymentMethods(){
+  if(!storeSettings.paymentMethods) storeSettings.paymentMethods={};
+  storeSettings.paymentMethods.cod={on:document.getElementById("pmCodOn")?.checked||false,info:document.getElementById("pmCodInfo")?.value||""};
+  storeSettings.paymentMethods.trans={on:document.getElementById("pmTransOn")?.checked||false,info:document.getElementById("pmTransInfo")?.value||""};
+  storeSettings.paymentMethods.dep={on:document.getElementById("pmDepOn")?.checked||false,info:document.getElementById("pmDepInfo")?.value||""};
+  saveSettings();
+}
+function renderPaymentButtons(){
+  const pm=storeSettings.paymentMethods||{};
+  const methods=[
+    {key:"cod",icon:"🚚",label:"Contra entrega",on:pm.cod?.on,info:pm.cod?.info||""},
+    {key:"trans",icon:"🏦",label:"Transferencia",on:pm.trans?.on,info:pm.trans?.info||""},
+    {key:"dep",icon:"💵",label:"Depósito",on:pm.dep?.on,info:pm.dep?.info||""}
+  ].filter(m=>m.on);
+  const wrap=document.getElementById("pmButtons");
+  const group=document.getElementById("paymentMethodGroup");
+  if(!wrap) return;
+  if(!methods.length){group.style.display="none";return;}
+  group.style.display="";
+  wrap.style.gridTemplateColumns=methods.length===1?"1fr":methods.length===2?"1fr 1fr":"1fr 1fr 1fr";
+  wrap.innerHTML=methods.map(m=>
+    `<button type="button" class="pm-btn" id="pmb_${m.key}" onclick="pickPayment('${m.key}','${encodeURIComponent(m.info)}')">`+
+    `<span class="pm-icon">${m.icon}</span><span>${m.label}</span></button>`
+  ).join("");
+  if(methods.length===1) pickPayment(methods[0].key, methods[0].info);
+}
+function pickPayment(key, rawInfo){
+  document.getElementById("buyerPayment").value=key;
+  document.querySelectorAll(".pm-btn").forEach(b=>b.classList.remove("active"));
+  const btn=document.getElementById("pmb_"+key); if(btn) btn.classList.add("active");
+  const info=decodeURIComponent(rawInfo);
+  const box=document.getElementById("pmInfoBox");
+  if(info.trim()){box.style.display="block";box.innerHTML="<strong style='font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:0.4rem'>Instrucciones de pago</strong>"+info.replace(/\n/g,"<br>");}
+  else box.style.display="none";
+}
+
 function placeOrder(){
   const name=document.getElementById("buyerName").value.trim();
   const contact=document.getElementById("buyerContact").value.trim();
@@ -1124,12 +1235,18 @@ function placeOrder(){
   const mun=document.getElementById("buyerMun").value;
   const address=document.getElementById("buyerAddress").value.trim();
   const notes=document.getElementById("buyerNotes").value.trim();
+  const payment=document.getElementById("buyerPayment").value;
   if(!name||!contact||!dept||!mun){toast("Completa todos los campos requeridos (*)","error");return;}
+  // validar pago solo si hay métodos activos
+  const pm=storeSettings.paymentMethods||{};
+  const anyOn=pm.cod?.on||pm.trans?.on||pm.dep?.on;
+  if(anyOn&&!payment){toast("Selecciona un método de pago","error");return;}
   const{subtotal,shipping,total}=updateCheckoutTotal();
   const items=cart.map(ci=>{const p=products.find(x=>x.id===ci.id);const pu=p?getPrecioProducto(p):0;return p?{id:p.id,name:p.name,price:pu,qty:ci.qty}:null;}).filter(Boolean);
   items.forEach(it=>{const p=products.find(x=>x.id===it.id);if(p)p.stock=Math.max(0,p.stock-it.qty);});
   saveProducts();
-  const order={id:nextOrderId(),date:new Date().toISOString(),status:"Pendiente",subtotal,shipping,total,customer:{name,contact,dept,mun,address,notes},items,mayoreoTipo:mayoreoTipo||null};
+  const pmLabels={cod:"Contra entrega",trans:"Transferencia bancaria",dep:"Depósito en efectivo"};
+  const order={id:nextOrderId(),date:new Date().toISOString(),status:"Pendiente",subtotal,shipping,total,payment:payment||null,paymentLabel:pmLabels[payment]||null,customer:{name,contact,dept,mun,address,notes},items,mayoreoTipo:mayoreoTipo||null};
   orders.push(order);
   localStorage.setItem("gen2_orders",JSON.stringify(orders));
   if(window._fb && window._fb.ready()) window._fb.saveOrder(order);
@@ -1138,6 +1255,7 @@ function placeOrder(){
     const tipoLabel=PRECIO_TIPOS[mayoreoTipo||"publico"]?.label||"Público";
     let msg="Nuevo Pedido #"+order.id+"\n"+name+" | "+contact+"\n"+dept+", "+mun+(address?" - "+address:"")+"\n";
     if(mayoreoMode&&mayoreoTipo&&mayoreoTipo!=="publico") msg+="Precio "+tipoLabel+"\n";
+    if(payment) msg+="💳 Pago: "+pmLabels[payment]+"\n";
     msg+="\nProductos:\n"; items.forEach(it=>{msg+="- "+it.name+" x"+it.qty+" = Q"+(it.price*it.qty).toFixed(2)+"\n";});
     msg+="\nSubtotal: Q"+subtotal.toFixed(2)+"\nEnvío: Q"+shipping.toFixed(2)+"\nTOTAL: Q"+total.toFixed(2);
     if(notes) msg+="\nNotas: "+notes;
@@ -1201,6 +1319,7 @@ function switchAdminTab(tab,el){
   if(tab==="orders") renderAdminOrders();
   if(tab==="store") applyStoreSettings();
   if(tab==="shipping"){populateDeptSelects();renderShippingZones();}
+  if(tab==="pagos") applyStoreSettings();
 }
 
 function renderAdminDashboard(){
@@ -1403,8 +1522,10 @@ function renderAdminOrders(){
   }).reverse();
   document.getElementById("adminOrdersTbody").innerHTML=filtered.map(o=>{
     const d=new Date(o.date).toLocaleDateString("es-GT");
+    const pmIcons={cod:"🚚",trans:"🏦",dep:"💵"};
+    const pmBadge=o.payment?`<br><small style="color:var(--accent);font-weight:600">${pmIcons[o.payment]||""} ${o.paymentLabel||o.payment}</small>`:"";
     return "<tr><td>#"+o.id+"</td><td>"+d+"</td><td><strong>"+o.customer.name+"</strong><br><small>"+o.customer.contact+"</small></td>"+
-      "<td>"+o.customer.dept+"<br><small>"+o.customer.mun+"</small></td><td><strong>Q"+o.total.toFixed(2)+"</strong></td>"+
+      "<td>"+o.customer.dept+"<br><small>"+o.customer.mun+"</small></td><td><strong>Q"+o.total.toFixed(2)+"</strong>"+pmBadge+"</td>"+
       "<td><select style='border:1px solid var(--border);border-radius:6px;padding:0.4rem;cursor:pointer;font-size:0.85rem;background:var(--surface);font-weight:600' onchange='changeOrderStatus("+o.id+",this.value)'>"+
         STEPS.map(s=>"<option"+(o.status===s?" selected":"")+">"+s+"</option>").join("")+
       "</select></td></tr>";
