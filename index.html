@@ -710,7 +710,8 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
     <h3 id="modalTitle">Agregar Producto</h3>
     <div class="form-group"><label>Código / SKU</label><input type="text" id="fSku" placeholder="Ej: 001234"></div>
     <div class="form-group"><label>Nombre *</label><input type="text" id="fName" placeholder="Nombre del producto"></div>
-    <div class="form-group"><label>Descripción / Categoría</label><textarea id="fDesc" placeholder="Categoria: LAPICERO"></textarea></div>
+    <div class="form-group"><label>Categoría</label><input type="text" id="fCategoria" placeholder="Ej: LAPICEROS, CUADERNOS..."></div>
+    <div class="form-group"><label>Descripción</label><textarea id="fDesc" placeholder="Descripción del producto..."></textarea></div>
     <div class="form-group"><label>Precio Público Q *</label><input type="number" id="fPrice" placeholder="0.00" min="0" step="0.01" oninput="previewPrecios()"></div>
     <div class="form-group"><label>Stock *</label><input type="number" id="fStock" placeholder="0" min="0"></div>
     <!-- Precios especiales por tipo -->
@@ -1041,7 +1042,8 @@ function renderShop(){
       "<div class='product-info'>"+
         "<div class='product-name'>"+p.name+"</div>"+
         (p.sku?"<div class='product-sku'>Cod: "+p.sku+"</div>":"")+
-        "<div class='product-desc'>"+(p.desc||"")+"</div>"+
+        (p.categoria?"<div style='display:inline-block;margin:0.3rem 0;background:#e0e7ff;color:#3730a3;border-radius:100px;padding:0.15rem 0.6rem;font-size:0.75rem;font-weight:700;'>"+p.categoria+"</div>":"")+
+        (p.desc?"<div class='product-desc'>"+p.desc+"</div>":"")+
         "<div class='product-footer'>"+
           "<div>"+
             (tieneEspecial?"<div style='font-size:0.8rem;color:var(--text-muted);text-decoration:line-through'>Q"+p.price.toFixed(2)+"</div>":"")+
@@ -1419,7 +1421,7 @@ function saveInventoryUpdate(){
 }
 function openAddModal(){
   editingId=null; document.getElementById("modalTitle").textContent="Agregar Producto";
-  ["fSku","fName","fDesc","fPrice","fStock","fImgUrl","fImgData","fMediaDocena","fDocena","fFardo"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["fSku","fName","fCategoria","fDesc","fPrice","fStock","fImgUrl","fImgData","fMediaDocena","fDocena","fFardo"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   const opEl=document.getElementById("fMayoreoOperacion"); if(opEl) opEl.value="directo";
   document.getElementById("imgPreview").style.display="none";
   document.getElementById("precioPreview").textContent="";
@@ -1429,6 +1431,7 @@ function openEditModal(id){
   const p=products.find(x=>x.id===id); if(!p)return;
   editingId=id; document.getElementById("modalTitle").textContent="Editar Producto";
   document.getElementById("fSku").value=p.sku||""; document.getElementById("fName").value=p.name||"";
+  document.getElementById("fCategoria").value=p.categoria||"";
   document.getElementById("fDesc").value=p.desc||""; document.getElementById("fPrice").value=p.price||"";
   document.getElementById("fStock").value=p.stock??""; document.getElementById("fImgUrl").value=p.imgUrl||"";
   document.getElementById("fImgData").value=p.img||"";
@@ -1481,6 +1484,7 @@ function previewPrecios(){
 }
 function saveProduct(){
   const sku=document.getElementById("fSku").value.trim(), name=document.getElementById("fName").value.trim();
+  const categoria=(document.getElementById("fCategoria")?.value||"").trim();
   const desc=document.getElementById("fDesc").value.trim(), price=parseFloat(document.getElementById("fPrice").value);
   const stock=parseInt(document.getElementById("fStock").value), imgUrl=document.getElementById("fImgUrl").value.trim();
   const img=document.getElementById("fImgData").value;
@@ -1498,8 +1502,8 @@ function saveProduct(){
   // Precio mayoristas general = docena (para compatibilidad con getPrecioProducto)
   const precio_mayoristas=precio_docena||precio_media_docena||precio_fardo||0;
   const extras={precio_mayoristas,precio_media_docena,precio_docena,precio_fardo};
-  if(editingId){const p=products.find(x=>x.id===editingId);if(p)Object.assign(p,{sku,name,desc,price,stock:isNaN(stock)?p.stock:stock,img,imgUrl,...extras});toast("Actualizado","success");}
-  else{products.push({id:nextId(),sku,name,desc,price,stock:isNaN(stock)?0:stock,img,imgUrl,...extras});toast("Agregado","success");}
+  if(editingId){const p=products.find(x=>x.id===editingId);if(p)Object.assign(p,{sku,name,desc,categoria,price,stock:isNaN(stock)?p.stock:stock,img,imgUrl,...extras});toast("Actualizado","success");}
+  else{products.push({id:nextId(),sku,name,desc,categoria,price,stock:isNaN(stock)?0:stock,img,imgUrl,...extras});toast("Agregado","success");}
   saveProducts(); closeModal(); renderAdminProducts(); populateInventorySelect(); renderShop();
 }
 function deleteProduct(id){
