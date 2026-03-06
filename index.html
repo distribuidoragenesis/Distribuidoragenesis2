@@ -854,7 +854,11 @@ function localLoad(){
   // Compatibilidad — ahora init() maneja la carga
   cart=JSON.parse(localStorage.getItem("gen2_cart")||"[]");
 }
+function sortProducts(){
+  products.sort((a,b)=>(a.name||"").localeCompare(b.name||"","es",{sensitivity:"base"}));
+}
 function saveProducts(){
+  sortProducts();
   localStorage.setItem("gen2_products",JSON.stringify(products));
   if(window._fb && window._fb.ready()) window._fb.saveProducts(products);
 }
@@ -877,6 +881,7 @@ function init(){
   // Si Firebase trajo datos iniciales, usarlos
   if(window._fbInitProducts) products = window._fbInitProducts;
   else products=JSON.parse(localStorage.getItem("gen2_products")||"[]");
+  sortProducts();
 
   if(window._fbInitOrders) orders = window._fbInitOrders;
   else orders=JSON.parse(localStorage.getItem("gen2_orders")||"[]");
@@ -916,7 +921,8 @@ function init(){
   if(window._fb && window._fb.ready()){
     window._fb.watchProducts(arr=>{
       products=arr;
-      localStorage.setItem("gen2_products",JSON.stringify(arr));
+      sortProducts();
+      localStorage.setItem("gen2_products",JSON.stringify(products));
       renderShop();
       if(loggedIn) renderAdminProducts();
     });
