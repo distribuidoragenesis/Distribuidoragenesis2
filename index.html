@@ -214,6 +214,9 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
 .product-desc { font-size: 0.85rem; color: var(--text-muted); flex: 1; margin-top: 0.3rem; line-height: 1.4; }
 .product-footer { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 1rem; gap: 0.5rem; }
 .product-price { font-size: 1.3rem; font-weight: 800; color: var(--dark); font-family: "Plus Jakarta Sans", sans-serif; }
+.product-price.oferta { color: var(--red); }
+.product-price-original { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); text-decoration: line-through; }
+.oferta-badge { position: absolute; top: 0.8rem; left: 0.8rem; background: var(--red); color: #fff; border-radius: 100px; padding: 0.25rem 0.65rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; box-shadow: 0 2px 6px rgba(239,68,68,0.35); }
 .product-stock-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
 .add-cart-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); padding: 0.7rem 1.2rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s; font-family: "Inter"; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25); flex-shrink: 0; }
 .add-cart-btn:hover { background: var(--accent2); transform: scale(1.05); box-shadow: var(--shadow-glow); }
@@ -713,6 +716,10 @@ h1, h2, h3, h4, .section-title, .nav-logo { font-family: "Plus Jakarta Sans", sa
     <div class="form-group"><label>Categoría</label><input type="text" id="fCategoria" placeholder="Ej: LAPICERO, CUADERNO..."></div>
     <div class="form-group"><label>Descripción</label><textarea id="fDesc" placeholder="Descripción del producto..."></textarea></div>
     <div class="form-group"><label>Precio Público Q *</label><input type="number" id="fPrice" placeholder="0.00" min="0" step="0.01" oninput="previewPrecios()"></div>
+    <div class="form-group">
+      <label>🏷️ Precio de Oferta Q <span style="font-size:0.8rem;color:var(--text-muted);font-weight:500">(opcional — deja en 0 si no aplica)</span></label>
+      <input type="number" id="fOferta" placeholder="0.00" min="0" step="0.01" style="border-color:var(--red);background:#fff5f5;" oninput="previewPrecios()">
+    </div>
     <div class="form-group"><label>Stock *</label><input type="number" id="fStock" placeholder="0" min="0"></div>
     <!-- Precios especiales por tipo -->
     <div style="background:var(--orange-soft);border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius-sm);padding:1.2rem;margin-bottom:1.2rem">
@@ -837,7 +844,11 @@ const MAYOREO_SUB_TIPOS={
 
 // Obtiene el precio del producto según el tipo seleccionado
 function getPrecioProducto(p){
-  if(!mayoreoMode||mayoreoTipo==="publico"||!mayoreoTipo) return p.price;
+  if(!mayoreoMode||mayoreoTipo==="publico"||!mayoreoTipo){
+    // Precio público: usar oferta si está activa y es menor
+    if(p.precio_oferta&&p.precio_oferta>0&&p.precio_oferta<p.price) return p.precio_oferta;
+    return p.price;
+  }
   if(mayoreoTipo==="media_docena"&&p.precio_media_docena>0) return p.precio_media_docena;
   if(mayoreoTipo==="docena"&&p.precio_docena>0) return p.precio_docena;
   if(mayoreoTipo==="fardo"&&p.precio_fardo>0) return p.precio_fardo;
@@ -1036,11 +1047,14 @@ function renderShop(){
     const avail=p.stock>0, img=p.img||p.imgUrl;
     const precio=getPrecioProducto(p);
     const tieneEspecial=mayoreoMode&&p["precio_"+mayoreoTipo]&&p["precio_"+mayoreoTipo]>0;
+    const tieneOferta=!mayoreoMode&&p.precio_oferta&&p.precio_oferta>0&&p.precio_oferta<p.price;
+    const descPct=tieneOferta?Math.round((1-p.precio_oferta/p.price)*100):0;
     return "<div class='product-card'>"+
       "<div class='product-img-wrap'>"+
         (img?"<img src='"+img+"' alt='"+p.name+"' loading='lazy' onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex'\"><div class='product-img-placeholder' style='display:none'>🖼<span>Sin imagen</span></div>":"<div class='product-img-placeholder'>🖼<span>Sin imagen</span></div>")+
         "<div class='status-dot "+(avail?"available":"unavailable")+"'></div>"+
         (tieneEspecial?"<div style='position:absolute;top:0.8rem;left:0.8rem;background:var(--orange);color:#fff;border-radius:100px;padding:0.2rem 0.6rem;font-size:0.7rem;font-weight:700;'>"+PRECIO_TIPOS[mayoreoTipo].icon+" "+PRECIO_TIPOS[mayoreoTipo].label+"</div>":"")+
+        (tieneOferta?"<div class='oferta-badge'>-"+descPct+"% OFERTA</div>":"")+
       "</div>"+
       "<div class='product-info'>"+
         "<div class='product-name'>"+p.name+"</div>"+
@@ -1049,7 +1063,8 @@ function renderShop(){
         "<div class='product-footer'>"+
           "<div>"+
             (tieneEspecial?"<div style='font-size:0.8rem;color:var(--text-muted);text-decoration:line-through'>Q"+p.price.toFixed(2)+"</div>":"")+
-            "<div class='product-price'>Q"+precio.toFixed(2)+"</div>"+
+            (tieneOferta?"<div class='product-price-original'>Q"+p.price.toFixed(2)+"</div>":"")+
+            "<div class='product-price"+(tieneOferta?" oferta":"")+"'>Q"+precio.toFixed(2)+"</div>"+
             "<div class='product-stock-label'>"+(avail?"Stock: "+p.stock:"Agotado")+"</div>"+
           "</div>"+
           "<button class='add-cart-btn' onclick='addToCart("+p.id+")' "+(avail?"":"disabled")+">+ Agregar</button>"+
@@ -1382,7 +1397,7 @@ function renderAdminProducts(){
   const start=(adminPage-1)*ADMIN_PAGE_SIZE;
   const page=filtered.slice(start,start+ADMIN_PAGE_SIZE);
   document.getElementById("adminProductsTbody").innerHTML=page.map(p=>
-    "<tr><td>"+(p.sku||"—")+"</td><td>"+p.name+"</td><td>Q"+Number(p.price).toFixed(2)+"</td><td>"+p.stock+"</td>"+
+    "<tr><td>"+(p.sku||"—")+"</td><td>"+p.name+"</td><td>Q"+Number(p.price).toFixed(2)+(p.precio_oferta&&p.precio_oferta>0&&p.precio_oferta<p.price?"<br><span style='color:var(--red);font-size:0.8rem;font-weight:700;'>🏷️ Oferta Q"+Number(p.precio_oferta).toFixed(2)+"</span>":"")+"</td><td>"+p.stock+"</td>"+
     "<td style='display:flex;gap:0.5rem'><button class='btn-edit' onclick='openEditModal("+p.id+")'>Editar</button><button class='btn-del' onclick='deleteProduct("+p.id+")'>Eliminar</button></td></tr>"
   ).join()||"<tr><td colspan='5' style='text-align:center;color:var(--text-muted)'>Sin productos</td></tr>";
   var bar=document.getElementById("adminPaginationBar");
@@ -1429,7 +1444,7 @@ function saveInventoryUpdate(){
 }
 function openAddModal(){
   editingId=null; document.getElementById("modalTitle").textContent="Agregar Producto";
-  ["fSku","fName","fDesc","fCategoria","fPrice","fStock","fImgUrl","fImgData","fMediaDocena","fDocena","fFardo"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["fSku","fName","fDesc","fCategoria","fPrice","fOferta","fStock","fImgUrl","fImgData","fMediaDocena","fDocena","fFardo"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   const opEl=document.getElementById("fMayoreoOperacion"); if(opEl) opEl.value="directo";
   document.getElementById("imgPreview").style.display="none";
   document.getElementById("precioPreview").textContent="";
@@ -1448,6 +1463,7 @@ function openEditModal(id){
   const md=document.getElementById("fMediaDocena"); if(md) md.value=(p.precio_media_docena||0)>0?p.precio_media_docena:"";
   const dc=document.getElementById("fDocena"); if(dc) dc.value=(p.precio_docena||0)>0?p.precio_docena:"";
   const fa=document.getElementById("fFardo"); if(fa) fa.value=(p.precio_fardo||0)>0?p.precio_fardo:"";
+  const ofEl=document.getElementById("fOferta"); if(ofEl) ofEl.value=(p.precio_oferta||0)>0?p.precio_oferta:"";
   const prev=document.getElementById("imgPreview");
   if(p.img||p.imgUrl){prev.src=p.img||p.imgUrl;prev.style.display="block";}else prev.style.display="none";
   document.getElementById("precioPreview").textContent="";
@@ -1507,9 +1523,10 @@ function saveProduct(){
   const precio_media_docena=calcMayoreo(document.getElementById("fMediaDocena")?.value);
   const precio_docena=calcMayoreo(document.getElementById("fDocena")?.value);
   const precio_fardo=calcMayoreo(document.getElementById("fFardo")?.value);
+  const precio_oferta=parseFloat(document.getElementById("fOferta")?.value)||0;
   // Precio mayoristas general = docena (para compatibilidad con getPrecioProducto)
   const precio_mayoristas=precio_docena||precio_media_docena||precio_fardo||0;
-  const extras={precio_mayoristas,precio_media_docena,precio_docena,precio_fardo};
+  const extras={precio_mayoristas,precio_media_docena,precio_docena,precio_fardo,precio_oferta};
   if(editingId){const p=products.find(x=>x.id===editingId);if(p)Object.assign(p,{sku,name,desc,categoria,price,stock:isNaN(stock)?p.stock:stock,img,imgUrl,...extras});toast("Actualizado","success");}
   else{products.push({id:nextId(),sku,name,desc,categoria,price,stock:isNaN(stock)?0:stock,img,imgUrl,...extras});toast("Agregado","success");}
   sortProducts(); saveProducts(); closeModal(); renderAdminProducts(); populateInventorySelect(); renderShop();
@@ -1712,9 +1729,9 @@ function shareQuoteWhatsApp(){
 // ── EXPORTAR / IMPORTAR INVENTARIO ──────────────────────────────
 function exportInventoryCSV(){
   if(!products.length){toast("No hay productos para exportar","error");return;}
-  var headers=["id","sku","nombre","precio","stock","descripcion","imgUrl","Categoría"];
+  var headers=["id","sku","nombre","precio","precio_oferta","stock","descripcion","imgUrl","Categoría","precio_media_docena","precio_docena","precio_fardo","precio_mayoristas"];
   var rows=products.map(function(p){
-    return [p.id,fCSV(p.sku||""),fCSV(p.name||""),p.price||0,p.stock||0,fCSV(p.desc||""),fCSV(p.imgUrl||""),fCSV(p.categoria||"")].join(",");
+    return [p.id,fCSV(p.sku||""),fCSV(p.name||""),p.price||0,p.precio_oferta||0,p.stock||0,fCSV(p.desc||""),fCSV(p.imgUrl||""),fCSV(p.categoria||""),p.precio_media_docena||0,p.precio_docena||0,p.precio_fardo||0,p.precio_mayoristas||0].join(",");
   });
   var csv="\uFEFF"+headers.join(",")+"\n"+rows.join("\n");
   var blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
@@ -1753,7 +1770,8 @@ function importInventoryCSV(e){
         precio_media_docena:gi(["precio_media_docena","media_docena"]),
         precio_docena:gi(["precio_docena","docena"]),
         precio_fardo:gi(["precio_fardo","fardo"]),
-        precio_mayoristas:gi(["precio_mayoristas","mayoristas"])
+        precio_mayoristas:gi(["precio_mayoristas","mayoristas"]),
+        precio_oferta:gi(["precio_oferta","oferta","precio_promocion","promo"])
       };
       if(idx.name<0||idx.price<0){toast("El CSV necesita columnas: nombre y precio","error");return;}
       toast("Subiendo inventario…","");
@@ -1772,10 +1790,11 @@ function importInventoryCSV(e){
         var precio_docena=idx.precio_docena>=0?parseFloat(cols[idx.precio_docena])||0:0;
         var precio_fardo=idx.precio_fardo>=0?parseFloat(cols[idx.precio_fardo])||0:0;
         var precio_mayoristas=idx.precio_mayoristas>=0?parseFloat(cols[idx.precio_mayoristas])||0:0;
+        var precio_oferta=idx.precio_oferta>=0?parseFloat(cols[idx.precio_oferta])||0:0;
         var eid=idx.id>=0?parseInt(cols[idx.id]):NaN;
         var ex=!isNaN(eid)?products.find(function(p){return p.id===eid;}):products.find(function(p){return p.name.toLowerCase()===name.toLowerCase();});
-        if(ex){Object.assign(ex,{sku:sku,name:name,price:price,stock:stock,desc:desc,imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas});updated++;}
-        else{products.push({id:nextId(),sku:sku,name:name,price:price,stock:stock,desc:desc,img:"",imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas});added++;}
+        if(ex){Object.assign(ex,{sku:sku,name:name,price:price,stock:stock,desc:desc,imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas,precio_oferta:precio_oferta});updated++;}
+        else{products.push({id:nextId(),sku:sku,name:name,price:price,stock:stock,desc:desc,img:"",imgUrl:imgUrl,categoria:categoria,precio_media_docena:precio_media_docena,precio_docena:precio_docena,precio_fardo:precio_fardo,precio_mayoristas:precio_mayoristas,precio_oferta:precio_oferta});added++;}
       }
       localStorage.setItem("lx_products",JSON.stringify(products));
       sortProducts();
